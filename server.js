@@ -831,11 +831,262 @@ app.delete('/api/leads/:phone/pending', async (req, res) => {
   }
 });
 
+// ============ ANALYTICS ENDPOINT ============
+app.get('/api/analytics', async (req, res) => {
+  try {
+    const leads = await getAllLeads();
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const thisWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Basic counts
+    const totalLeads = leads.length;
+    const activeLeads = leads.filter(l => l.status !== 'handled').length;
+    const handledLeads = leads.filter(l => l.status === 'handled').length;
+
+    // Category breakdown
+    const byCategory = {
+      hot: leads.filter(l => l.category === 'wants_quote').length,
+      quoted: leads.filter(l => l.category === 'ready_for_quote' || l.quoteSent).length,
+      scheduled: leads.filter(l => l.category === 'scheduled').length,
+      dead: leads.filter(l => l.category === 'dead').length,
+      medicare: leads.filter(l => l.category === 'medicare' || l.isMedicare).length,
+      soft: leads.filter(l => l.category === 'soft_positive').length,
+      question: leads.filter(l => l.category === 'question').length
+    };
+
+    // Conversion metrics
+    const quotedLeads = leads.filter(l => l.quoteSent);
+    const bookedLeads = leads.filter(l => l.actions?.some(a => a.action === 'Booked'));
+    const quoteToBook = quotedLeads.length > 0 ?
+      Math.round((bookedLeads.length / quotedLeads.length) * 100) : 0;
+
+    // Time-based metrics
+    const leadsToday = leads.filter(l => new Date(l.createdAt) >= today).length;
+    const leadsThisWeek = leads.filter(l => new Date(l.createdAt) >= thisWeek).length;
+    const leadsThisMonth = leads.filter(l => new Date(l.createdAt) >= thisMonth).length;
+
+    // Response time (avg time from lead creation to first action)
+    const leadsWithActions = leads.filter(l => l.actions?.length > 0 && l.createdAt);
+    let avgResponseTime = 0;
+    if (leadsWithActions.length > 0) {
+      const totalTime = leadsWithActions.reduce((sum, l) => {
+        const created = new Date(l.createdAt).getTime();
+        const firstAction = new Date(l.actions[0].timestamp).getTime();
+        return sum + (firstAction - created);
+      }, 0);
+      avgResponseTime = Math.round(totalTime / leadsWithActions.length / 1000 / 60); // minutes
+    }
+
+    // Follow-up tracking
+    const needsFollowUp = leads.filter(l =>
+      l.category === 'scheduled' &&
+      l.status !== 'handled' &&
+      l.followUpDate
+    ).length;
+
+    // Actions breakdown
+    const actionCounts = {};
+    leads.forEach(l => {
+      (l.actions || []).forEach(a => {
+        actionCounts[a.action] = (actionCounts[a.action] || 0) + 1;
+      });
+    });
+
+    res.json({
+      totalLeads,
+      activeLeads,
+      handledLeads,
+      byCategory,
+      conversions: {
+        quoted: quotedLeads.length,
+        booked: bookedLeads.length,
+        quoteToBookRate: quoteToBook
+      },
+      timeMetrics: {
+        today: leadsToday,
+        thisWeek: leadsThisWeek,
+        thisMonth: leadsThisMonth,
+        avgResponseMinutes: avgResponseTime
+      },
+      needsFollowUp,
+      actionCounts
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============ FOLLOW-UP REMINDERS ============
+app.get('/api/followups', async (req, res) => {
+  try {
+    const leads = await getAllLeads();
+    const now = new Date();
+
+    const followUps = leads.filter(l =>
+      l.status !== 'handled' &&
+      (l.category === 'scheduled' || l.followUpDate)
+    ).map(l => ({
+      phone: l.phone,
+      name: l.name,
+      followUpDate: l.followUpDate,
+      lastMessageAt: l.lastMessageAt,
+      category: l.category,
+      daysSinceContact: Math.floor((now - new Date(l.lastMessageAt)) / (1000 * 60 * 60 * 24))
+    })).sort((a, b) => a.daysSinceContact - b.daysSinceContact);
+
+    // Also get "stale" leads - no contact in 3+ days
+    const staleLeads = leads.filter(l => {
+      if (l.status === 'handled' || l.category === 'dead') return false;
+      const lastContact = new Date(l.lastMessageAt || l.createdAt);
+      const daysSince = (now - lastContact) / (1000 * 60 * 60 * 24);
+      return daysSince >= 3;
+    }).map(l => ({
+      phone: l.phone,
+      name: l.name,
+      lastMessageAt: l.lastMessageAt,
+      category: l.category,
+      daysSinceContact: Math.floor((now - new Date(l.lastMessageAt || l.createdAt)) / (1000 * 60 * 60 * 24))
+    }));
+
+    res.json({ followUps, staleLeads });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============ CALL TRACKING ============
+app.post('/api/leads/:phone/call', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+  const { outcome, duration, notes, scheduled } = req.body;
+
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      if (!lead.calls) lead.calls = [];
+      lead.calls.push({
+        outcome, // 'answered', 'voicemail', 'no_answer', 'busy', 'scheduled'
+        duration, // in seconds
+        notes,
+        scheduled, // if scheduling a callback
+        timestamp: new Date().toISOString()
+      });
+
+      // Update lead status based on outcome
+      if (outcome === 'answered' || outcome === 'scheduled') {
+        lead.lastCallOutcome = outcome;
+        if (scheduled) {
+          lead.followUpDate = scheduled;
+          lead.category = 'scheduled';
+        }
+      }
+
+      await saveLead(phone, lead);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============ CALENDLY SETTINGS ============
+let calendlySettings = {
+  url: process.env.CALENDLY_URL || '',
+  eventType: 'health-insurance-consultation'
+};
+
+app.get('/api/settings/calendly', (req, res) => {
+  res.json(calendlySettings);
+});
+
+app.post('/api/settings/calendly', (req, res) => {
+  if (req.body.url) calendlySettings.url = req.body.url;
+  if (req.body.eventType) calendlySettings.eventType = req.body.eventType;
+  res.json(calendlySettings);
+});
+
+// ============ SCHEDULE APPOINTMENT (for lead) ============
+app.post('/api/leads/:phone/schedule', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+  const { scheduledTime, notes } = req.body;
+
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      lead.scheduledAppointment = {
+        time: scheduledTime,
+        notes,
+        createdAt: new Date().toISOString()
+      };
+      lead.category = 'scheduled';
+      lead.followUpDate = new Date(scheduledTime).toLocaleDateString();
+
+      if (!lead.actions) lead.actions = [];
+      lead.actions.push({
+        action: 'Scheduled appointment',
+        timestamp: new Date().toISOString(),
+        details: scheduledTime
+      });
+
+      await saveLead(phone, lead);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============ ENHANCED QUOTE ENDPOINT ============
+app.post('/api/quote', (req, res) => {
+  const { adults, kids, youngestAge } = req.body;
+  const quote = calculateQuote(adults || 1, kids || 0, youngestAge || 35);
+
+  // Add plan details
+  const plans = [
+    {
+      name: 'Bronze',
+      price: quote.lowPrice,
+      deductible: 7500,
+      copay: { primary: 50, specialist: 75, urgent: 75, er: 350 },
+      maxOutOfPocket: 8000
+    },
+    {
+      name: 'Silver',
+      price: Math.round((quote.lowPrice + quote.highPrice) / 2),
+      deductible: 5000,
+      copay: { primary: 50, specialist: 50, urgent: 50, er: 250 },
+      maxOutOfPocket: 5000
+    },
+    {
+      name: 'Gold',
+      price: quote.highPrice,
+      deductible: 2500,
+      copay: { primary: 25, specialist: 40, urgent: 40, er: 200 },
+      maxOutOfPocket: 3500
+    }
+  ];
+
+  res.json({
+    bracket: quote.bracket,
+    adults,
+    kids,
+    youngestAge,
+    plans,
+    lowPrice: quote.lowPrice,
+    highPrice: quote.highPrice
+  });
+});
+
 const PORT = process.env.PORT || 3000;
 
 initDB().then(() => {
   app.listen(PORT, () => {
-    console.log(`🇺🇸 Duddas CRM v3.0 on port ${PORT} - Making Insurance Great Again!`);
+    console.log(`🇺🇸 Duddas CRM v4.0 on port ${PORT} - Making Insurance Great Again!`);
     console.log(`AI Responses: ${process.env.ANTHROPIC_API_KEY ? 'ENABLED' : 'DISABLED (set ANTHROPIC_API_KEY)'}`);
   });
 });
