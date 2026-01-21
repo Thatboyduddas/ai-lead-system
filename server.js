@@ -2,11 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const { Pool } = require('pg');
+const Anthropic = require('@anthropic-ai/sdk');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
+
+// Claude API client
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY
+});
 
 // PostgreSQL connection
 const pool = new Pool({
@@ -113,7 +119,6 @@ function parseAgeGender(message) {
   const ages = [];
   let numKids = 0;
   
-  // Find all 2-digit numbers that could be ages
   const allMatches = message.match(/\b(\d{1,2})\b/g);
   if (allMatches) {
     allMatches.forEach(match => {
@@ -124,7 +129,6 @@ function parseAgeGender(message) {
     });
   }
   
-  // Check for kids
   const kidsMatch = text.match(/(\d+)\s*(kids?|children|child|dependents?)/i);
   if (kidsMatch) {
     numKids = parseInt(kidsMatch[1]) || 1;
@@ -132,29 +136,21 @@ function parseAgeGender(message) {
     numKids = 1;
   }
   
-  // Word numbers
   const wordNums = { one: 1, two: 2, three: 3, four: 4, five: 5 };
   const wordMatch = text.match(/(one|two|three|four|five)\s*(kids?|children)/i);
   if (wordMatch) {
     numKids = wordNums[wordMatch[1].toLowerCase()] || 1;
   }
   
-  // Spouse detection
   const hasSpouse = /wife|husband|spouse|partner|married|couple|and my|and her|and his/i.test(text);
-  
-  // Just me detection
   const justMe = /just\s*me|only\s*me|myself|single|just\s*myself|only myself/i.test(text);
   
-  // Calculate adults
   let adults = ages.length || 1;
   if (hasSpouse && adults < 2) adults = 2;
   if (justMe && ages.length <= 1) adults = 1;
   
-  // Youngest age for bracket (only adults 18-64)
   const adultAges = ages.filter(a => a >= 18 && a <= 64);
   const youngestAge = adultAges.length > 0 ? Math.min(...adultAges) : (ages[0] || 35);
-  
-  // Medicare check
   const hasMedicareAge = ages.some(a => a >= 65);
   
   return { adults, kids: numKids, youngestAge, ages, hasMedicareAge };
@@ -182,7 +178,6 @@ function detectIntent(message) {
     if (text.includes(word)) return { intent: 'medicare', confidence: 0.9 };
   }
   
-  // Check for ages 65+ explicitly
   const ageMatches = message.match(/\b(6[5-9]|[7-9][0-9])\b/g);
   if (ageMatches && ageMatches.length > 0) {
     const ageGender = parseAgeGender(message);
@@ -199,16 +194,13 @@ function detectIntent(message) {
     return { intent: 'gave_age_gender', confidence: 0.95, data: ageGender };
   }
   
-  // Multiple ages (like "55, 56, 32")
   const multipleAges = message.match(/\b(1[89]|[2-5][0-9]|6[0-4])\b/g);
   if (multipleAges && multipleAges.length >= 2) {
     const ageGender = parseAgeGender(message);
     return { intent: 'gave_age_gender', confidence: 0.9, data: ageGender };
   }
   
-  // Single age with gender context nearby
   if (hasAge) {
-    // Check if there's any gender word in the message
     if (/\b(m|f|male|female|man|woman)\b/i.test(text)) {
       const ageGender = parseAgeGender(message);
       return { intent: 'gave_age_gender', confidence: 0.85, data: ageGender };
@@ -255,12 +247,12 @@ function detectIntent(message) {
     if (text.includes(word)) return { intent: 'soft_positive', confidence: 0.6 };
   }
   
-  // Short responses - could be positive
+  // Short greetings/responses - need AI to handle contextually
   if (text.length <= 15 && text.length > 0) {
     const shortPositive = ['hi', 'hello', 'hey', 'sup', 'yo', 'k', 'kk', 'cool', 'bet', 'aight', 'word', 'thanks', 'thank you', 'thx', 'ty'];
     for (const word of shortPositive) {
       if (text === word || text.startsWith(word + ' ') || text.startsWith(word + '!')) {
-        return { intent: 'soft_positive', confidence: 0.5 };
+        return { intent: 'greeting', confidence: 0.5 };
       }
     }
   }
@@ -269,14 +261,77 @@ function detectIntent(message) {
   return { intent: 'review', confidence: 0.3 };
 }
 
-// ============ MESSAGE TEMPLATES ============
+// ============ AI RESPONSE GENERATION ============
+async function generateAIResponse(leadMessage, intent, context = {}) {
+  const systemPrompt = `You are a friendly health insurance agent named Jack. You help people get quotes for private health insurance plans.
+
+RULES:
+- Keep responses SHORT (1-2 sentences max)
+- Be conversational and friendly, not salesy
+- Match the lead's energy/tone
+- Your GOAL is always to get their age so you can provide a quote
+- Never be pushy or aggressive
+- Use casual language, contractions, no exclamation points overload
+
+CONTEXT:
+- You sell private health insurance for ages 18-64
+- For ages 65+, you refer to Faith for Medicare
+- To give a quote you need: age of everyone being insured
+- Plans range $239-$1800/month depending on age and family size
+
+WHAT YOU KNOW ABOUT THIS LEAD:
+- Their message: "${leadMessage}"
+- Detected intent: ${intent}
+- Current tag: ${context.currentTag || 'new'}`;
+
+  let userPrompt = '';
+  
+  switch (intent) {
+    case 'greeting':
+      userPrompt = `The lead just said "${leadMessage}" - this is a greeting/acknowledgment. They're responding to your outreach about health insurance. Write a friendly reply that acknowledges their greeting and naturally asks for their age to provide a quote. Don't be robotic - match their casual energy.`;
+      break;
+    case 'soft_positive':
+      userPrompt = `The lead said "${leadMessage}" - they seem somewhat interested but non-committal. Write a low-pressure response that gently moves toward getting their age for a quote.`;
+      break;
+    case 'has_question':
+      userPrompt = `The lead asked: "${leadMessage}". Answer their question briefly and professionally, then guide toward getting their age for a quote if appropriate.`;
+      break;
+    case 'wants_quote':
+      userPrompt = `The lead said "${leadMessage}" - they want a quote! Ask for the age (and gender if needed) of everyone who will be on the plan. Keep it simple.`;
+      break;
+    case 'call_later':
+      userPrompt = `The lead said "${leadMessage}" - they want to be contacted later. Acknowledge this positively and confirm when you'll follow up.`;
+      break;
+    default:
+      userPrompt = `The lead said "${leadMessage}". Write an appropriate response that moves the conversation toward getting their age for a quote, or addresses whatever they said.`;
+  }
+
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 150,
+      messages: [
+        { role: 'user', content: userPrompt }
+      ],
+      system: systemPrompt
+    });
+    
+    return response.content[0].text.trim();
+  } catch (err) {
+    console.error('AI generation error:', err);
+    // Fallback to template if AI fails
+    return null;
+  }
+}
+
+// ============ MESSAGE TEMPLATES (FALLBACKS) ============
 const MESSAGES = {
   ageGender: "Alright, what is the age and gender of everyone that will be insured?",
   quote: (low, high) => `Assuming you have no major chronic/critical conditions, you can qualify for plans between $${low}-$${high}/month. Deductibles and networks are customizable ➡️ with $50 copays for primary care, specialists, and urgent care; $250 for ER; $250 for outpatient surgeries; and $500 for inpatient stays. Maximum out of pocket 5k. Plans include free ACA-compliant preventive care (immunizations, physicals, mammograms, Pap smears, colonoscopies).`,
   medicare: `We don't specialize in Medicare, but here is our referral for Medicare. Her name is Faith, she has been doing this for over a decade. Text her here +1 (352) 900-3966 or get on her calendar for a consultation. PLEASE make sure to mention Jack referred you! https://api.leadconnectorhq.com/widget/bookings/faithinsurancesolcalendar`
 };
 
-function processMessage(message) {
+async function processMessage(message, context = {}) {
   const intentResult = detectIntent(message);
   
   let category, priority, suggestedAction, copyMessage, tagToApply, followUpDate;
@@ -286,7 +341,8 @@ function processMessage(message) {
       category = 'wants_quote';
       priority = 'high';
       suggestedAction = '🔥 HOT LEAD! Send age/gender question';
-      copyMessage = MESSAGES.ageGender;
+      // Use AI for contextual response
+      copyMessage = await generateAIResponse(message, 'wants_quote', context) || MESSAGES.ageGender;
       tagToApply = 'Age and gender';
       break;
       
@@ -320,27 +376,38 @@ function processMessage(message) {
       priority = 'medium';
       followUpDate = intentResult.followUpDate || 'Later';
       suggestedAction = `📅 Follow up: ${followUpDate}`;
+      copyMessage = await generateAIResponse(message, 'call_later', context) || `Got it, I'll follow up with you ${followUpDate}. Talk soon!`;
       tagToApply = 'Follow up';
       break;
       
     case 'has_question':
       category = 'question';
       priority = 'high';
-      suggestedAction = '❓ Has a question - respond personally';
+      suggestedAction = '❓ Has a question - AI generated response';
+      copyMessage = await generateAIResponse(message, 'has_question', context);
+      break;
+      
+    case 'greeting':
+      category = 'soft_positive';
+      priority = 'medium';
+      suggestedAction = '👋 Greeting - send friendly response with age question';
+      copyMessage = await generateAIResponse(message, 'greeting', context) || "Hey there! For the health insurance quote, I just need your age - what've you got?";
+      tagToApply = 'Age and gender';
       break;
       
     case 'soft_positive':
       category = 'soft_positive';
       priority = 'medium';
-      suggestedAction = '🤔 Might be interested - send age/gender question';
-      copyMessage = MESSAGES.ageGender;
+      suggestedAction = '🤔 Might be interested - send personalized response';
+      copyMessage = await generateAIResponse(message, 'soft_positive', context) || MESSAGES.ageGender;
       tagToApply = 'Age and gender';
       break;
       
     default:
       category = 'review';
       priority = 'medium';
-      suggestedAction = '👀 REVIEW - Could be a positive! Check manually';
+      suggestedAction = '👀 REVIEW - AI generated response';
+      copyMessage = await generateAIResponse(message, 'review', context);
   }
   
   return { 
@@ -399,7 +466,8 @@ app.post('/webhook/salesgod', async (req, res) => {
       
       let analysis = null;
       if (!isOutgoing) {
-        analysis = processMessage(messages_as_string);
+        // Pass context to processMessage for better AI responses
+        analysis = await processMessage(messages_as_string, { currentTag: lead.currentTag });
         lead.category = analysis.category;
         lead.priority = analysis.priority;
         lead.suggestedAction = analysis.suggestedAction;
@@ -500,7 +568,8 @@ app.get('/api/test', async (req, res) => {
     res.json({ 
       status: '🇺🇸 Duddas CRM v3.0 - MAGA Edition', 
       leads: leads.length,
-      message: 'Making Insurance Great Again!'
+      message: 'Making Insurance Great Again!',
+      aiEnabled: !!process.env.ANTHROPIC_API_KEY
     });
   } catch (err) {
     res.json({ status: 'Running (DB Error)', error: err.message });
@@ -516,13 +585,15 @@ app.post('/api/simulate', async (req, res) => {
     { msg: "No thanks", name: "Dead" },
     { msg: "I'm 67 need coverage", name: "Medicare" },
     { msg: "Maybe", name: "Soft Positive" },
-    { msg: "35 male just me", name: "Single" }
+    { msg: "35 male just me", name: "Single" },
+    { msg: "Hi", name: "Greeting" },
+    { msg: "Hey", name: "Greeting 2" }
   ];
   
   const test = testMessages[Math.floor(Math.random() * testMessages.length)];
   const phone = `+1555${Math.floor(Math.random()*9000000+1000000)}`;
   const cleanPhone = phone.replace(/[^0-9+]/g, '');
-  const analysis = processMessage(test.msg);
+  const analysis = await processMessage(test.msg);
   
   const lead = {
     id: Date.now(),
@@ -564,5 +635,6 @@ const PORT = process.env.PORT || 3000;
 initDB().then(() => {
   app.listen(PORT, () => {
     console.log(`🇺🇸 Duddas CRM v3.0 on port ${PORT} - Making Insurance Great Again!`);
+    console.log(`AI Responses: ${process.env.ANTHROPIC_API_KEY ? 'ENABLED' : 'DISABLED (set ANTHROPIC_API_KEY)'}`);
   });
 });
