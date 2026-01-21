@@ -24,20 +24,37 @@ function extractConversationData() {
     if (text.includes(tag)) { currentTag = tag; break; }
   }
   
-  let lastIncoming = "";
-  const outgoingStarts = ["Hey, it's Mia", "Hi, it's Mia", "Alright, may I", "Alright, what", "Assuming you have", "Touching base", "Not sure if", "I checked my", "Hey, this is Mia", "Hey it's Mia"];
+  const outgoingStarts = ["Hey, it's Mia", "Hi, it's Mia", "Alright, may I", "Alright, what", "Assuming you have", "Touching base", "Not sure if", "I checked my", "Hey, this is Mia", "Hey it's Mia", "Text 0 to Opt Out", "Hey, following up", "I found a few"];
   
-  const messagePattern = /(\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[AP]M)/g;
-  let parts = text.split(messagePattern);
+  const timestampPattern = /\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[AP]M/;
   
-  for (let i = parts.length - 2; i >= 0; i -= 2) {
-    const msg = parts[i].trim();
-    if (msg && msg.length > 2 && !msg.includes('Balance') && !msg.includes('Dashboard') && !msg.includes('unread')) {
-      let isOutgoing = false;
-      for (const start of outgoingStarts) {
-        if (msg.includes(start)) { isOutgoing = true; break; }
+  let messages = [];
+  let currentMsg = "";
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (timestampPattern.test(line)) {
+      if (currentMsg) {
+        messages.push(currentMsg.trim());
       }
-      if (!isOutgoing) { lastIncoming = msg; break; }
+      currentMsg = "";
+    } else if (!line.includes('Balance') && !line.includes('Dashboard') && !line.includes('unread') && !line.includes('Messenger') && !line.includes('Calendar') && !line.includes('Support') && line.length > 1) {
+      currentMsg += " " + line;
+    }
+  }
+  
+  let lastIncoming = "";
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i].trim();
+    if (msg.length < 3) continue;
+    
+    let isOutgoing = false;
+    for (const start of outgoingStarts) {
+      if (msg.includes(start)) { isOutgoing = true; break; }
+    }
+    if (!isOutgoing) { 
+      lastIncoming = msg; 
+      break; 
     }
   }
   
