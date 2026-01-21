@@ -473,6 +473,60 @@ function processMessage(message, context = {}) {
   };
 }
 
+// ============ AI REFINE ENDPOINT ============
+app.post('/api/ai/refine', async (req, res) => {
+  const { phone, currentSuggestion, leadMessage, instruction, context } = req.body;
+  
+  try {
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 200,
+      system: `You are helping a health insurance agent refine their text message responses. 
+Keep responses SHORT (1-2 sentences max). 
+The agent sells private health insurance for ages 18-64.
+For ages 65+, they refer to Faith for Medicare.
+To give a quote they need the lead's age.
+Be conversational, friendly, not salesy.`,
+      messages: [
+        {
+          role: 'user',
+          content: `Current suggested response: "${currentSuggestion}"
+
+Lead's last message: "${leadMessage}"
+
+Lead context: ${context.name || 'Unknown'}, Tag: ${context.tag || 'None'}, Category: ${context.category || 'unknown'}
+
+The agent wants you to modify the response with this instruction: "${instruction}"
+
+Write ONLY the new response text, nothing else. Keep it short (1-2 sentences).`
+        }
+      ]
+    });
+    
+    const newResponse = response.content[0].text.trim();
+    
+    // Save the refinement for learning
+    const cleanPhone = phone.replace(/[^0-9+]/g, '');
+    const lead = await getLead(cleanPhone);
+    if (lead) {
+      if (!lead.refinements) lead.refinements = [];
+      lead.refinements.push({
+        instruction,
+        before: currentSuggestion,
+        after: newResponse,
+        timestamp: new Date().toISOString()
+      });
+      lead.copyMessage = newResponse;
+      await saveLead(cleanPhone, lead);
+    }
+    
+    res.json({ success: true, newResponse });
+  } catch (err) {
+    console.error('AI refine error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ============ WEBHOOK ============
 app.post('/webhook/salesgod', async (req, res) => {
   console.log('Webhook received:', req.body);
