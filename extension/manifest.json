@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "AI Lead Intelligence - SalesGod",
+  "version": "1.0",
+  "description": "Sends SalesGod messages to AI Dashboard",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.salesgodcrm.net/*", "https://ai-lead-system-production-df0a.up.railway.app/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.salesgodcrm.net/messenger*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
