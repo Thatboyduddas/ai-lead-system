@@ -235,10 +235,6 @@ app.post('/webhook/salesgod', async (req, res) => {
     return res.json({ success: false, error: 'No phone number' });
   }
   
-  if (isOutgoing) {
-    return res.json({ success: true, skipped: true, reason: 'outgoing message' });
-  }
-  
   const cleanPhone = phone.replace(/[^0-9+]/g, '');
   
   try {
@@ -266,20 +262,26 @@ app.post('/webhook/salesgod', async (req, res) => {
     
     // Add new message if it's different from last
     const lastMsg = lead.messages[lead.messages.length - 1];
-    if (!lastMsg || lastMsg.text !== messages_as_string) {
-      const analysis = processMessage(messages_as_string);
+    if (!lastMsg || lastMsg.text !== messages_as_string || lastMsg.isOutgoing !== !!isOutgoing) {
+      
+      // Only analyze incoming messages for AI suggestions
+      let analysis = null;
+      if (!isOutgoing) {
+        analysis = processMessage(messages_as_string);
+        lead.category = analysis.category;
+        lead.priority = analysis.priority;
+        lead.suggestedAction = analysis.suggestedAction;
+        lead.copyMessage = analysis.copyMessage;
+        lead.tagToApply = analysis.tagToApply;
+      }
       
       lead.messages.push({
         text: messages_as_string,
         timestamp: new Date().toISOString(),
+        isOutgoing: !!isOutgoing,
         analysis: analysis
       });
       
-      lead.category = analysis.category;
-      lead.priority = analysis.priority;
-      lead.suggestedAction = analysis.suggestedAction;
-      lead.copyMessage = analysis.copyMessage;
-      lead.tagToApply = analysis.tagToApply;
       lead.lastMessageAt = new Date().toISOString();
     }
     
