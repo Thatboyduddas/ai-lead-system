@@ -7,7 +7,8 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-let leads = [];
+// Store leads grouped by phone
+let leads = {};
 
 const PRICING = {
   low: {
@@ -40,26 +41,21 @@ function calculateQuote(adults, kids, youngestAge) {
   let lowPrice, highPrice;
   
   if (adults === 1 && kids === 0) {
-    lowPrice = low.single;
-    highPrice = high.single;
+    lowPrice = low.single; highPrice = high.single;
   } else if (adults === 2 && kids === 0) {
-    lowPrice = low.spouse;
-    highPrice = high.spouse;
+    lowPrice = low.spouse; highPrice = high.spouse;
   } else if (adults === 1 && kids === 1) {
     lowPrice = Math.round((low.single + low.kids) / 2);
     highPrice = Math.round((high.single + high.kids) / 2);
   } else if (adults === 1 && kids >= 2) {
-    lowPrice = low.kids;
-    highPrice = high.kids;
+    lowPrice = low.kids; highPrice = high.kids;
   } else if (adults === 2 && kids === 1) {
     lowPrice = Math.round((low.spouse + low.family) / 2);
     highPrice = Math.round((high.spouse + high.family) / 2);
   } else if (adults === 2 && kids >= 2) {
-    lowPrice = low.family;
-    highPrice = high.family;
+    lowPrice = low.family; highPrice = high.family;
   } else {
-    lowPrice = low.single;
-    highPrice = high.single;
+    lowPrice = low.single; highPrice = high.single;
   }
   
   return { lowPrice, highPrice, bracket };
@@ -98,25 +94,29 @@ function parseAgeGender(message) {
 function detectIntent(message) {
   const text = message.toLowerCase();
   
-  const stopWords = ['stop', 'unsubscribe', 'remove', 'not interested', 'no thanks', 'leave me alone', 'already have', 'all good', 'all set', 'im good', "i'm good", 'pass', 'nope', 'nah', 'no thank'];
+  // Stop words - not interested
+  const stopWords = ['stop', 'unsubscribe', 'remove', 'not interested', 'no thanks', 'leave me alone', 'already have', 'all good', 'all set', 'im good', "i'm good", 'pass', 'nope', 'nah', 'no thank', 'dont text', "don't text", 'too pricey', 'too expensive', 'cant afford', "can't afford"];
   for (const word of stopWords) {
     if (text.includes(word)) return { intent: 'not_interested', confidence: 0.9 };
   }
   
-  const ageGender = parseAgeGender(message);
+  // Check for age/gender info
   const hasAge = text.match(/\d{2}/);
-  const hasGender = text.includes('male') || text.includes('female') || text.match(/\b(m|f)\b/);
+  const hasGender = text.includes('male') || text.includes('female') || text.match(/\b(m|f)\b/) || text.includes('just me');
   if (hasAge && (hasGender || text.includes('wife') || text.includes('husband') || text.includes('kid'))) {
+    const ageGender = parseAgeGender(message);
     return { intent: 'gave_age_gender', confidence: 0.95, data: ageGender };
   }
   
-  const wantsQuoteWords = ['yes', 'yeah', 'yea', 'sure', 'ok', 'okay', 'interested', 'info', 'quote', 'price', 'cost', 'how much', 'tell me more', 'sounds good', "let's do it", 'sign me up', 'need insurance', 'fine', 'go ahead', 'send', 'want'];
+  // Wants quote / interested
+  const wantsQuoteWords = ['yes', 'yeah', 'yea', 'sure', 'ok', 'okay', 'interested', 'info', 'quote', 'price', 'cost', 'how much', 'tell me more', 'sounds good', "let's do it", 'sign me up', 'need insurance', 'fine', 'go ahead', 'send', 'want a quote', 'can you send'];
   for (const word of wantsQuoteWords) {
     if (text.includes(word)) return { intent: 'wants_quote', confidence: 0.85 };
   }
   
+  // Call me later
   const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
-  const laterWords = ['later', 'next week', 'next month', 'few weeks', 'busy', 'not right now', 'call me', 'text me'];
+  const laterWords = ['later', 'next week', 'next month', 'few weeks', 'busy', 'not right now', 'call me', 'text me', 'get back'];
   for (const month of months) {
     if (text.includes(month)) return { intent: 'call_later', confidence: 0.9, followUpDate: month };
   }
@@ -124,7 +124,10 @@ function detectIntent(message) {
     if (text.includes(word)) return { intent: 'call_later', confidence: 0.8 };
   }
   
-  if (text.includes('?')) return { intent: 'has_question', confidence: 0.7 };
+  // Questions
+  if (text.includes('?') || text.includes('who is this') || text.includes('what provider') || text.includes('what company')) {
+    return { intent: 'has_question', confidence: 0.7 };
+  }
   
   return { intent: 'unclear', confidence: 0.3 };
 }
@@ -134,8 +137,8 @@ const MESSAGES = {
   quote: (low, high) => `Assuming you have no major chronic/critical conditions, you can qualify for plans between $${low}-$${high}/month. Deductibles and networks are customizable ➡️ with $50 copays for primary care, specialists, and urgent care; $250 for ER; $250 for outpatient surgeries; and $500 for inpatient stays. Maximum out of pocket 5k. Plans include free ACA-compliant preventive care (immunizations, physicals, mammograms, Pap smears, colonoscopies).`
 };
 
-function processLead(phone, name, messageText) {
-  const intentResult = detectIntent(messageText);
+function processMessage(message) {
+  const intentResult = detectIntent(message);
   
   let category, priority, suggestedAction, copyMessage, tagToApply, followUpDate;
   
@@ -159,18 +162,18 @@ function processLead(phone, name, messageText) {
     case 'not_interested':
       category = 'dead';
       priority = 'low';
-      suggestedAction = 'Remove from campaigns';
+      suggestedAction = 'Lead not interested';
       break;
     case 'call_later':
       category = 'scheduled';
       priority = 'medium';
-      followUpDate = intentResult.followUpDate || 'Next month';
-      suggestedAction = `Schedule follow-up for ${followUpDate}`;
+      followUpDate = intentResult.followUpDate || 'Later';
+      suggestedAction = `Follow up: ${followUpDate}`;
       tagToApply = 'Follow up';
       break;
     case 'has_question':
       category = 'question';
-      priority = 'medium';
+      priority = 'high';
       suggestedAction = 'Answer their question';
       break;
     default:
@@ -179,109 +182,164 @@ function processLead(phone, name, messageText) {
       suggestedAction = 'Review manually';
   }
   
-  return {
-    id: Date.now() + Math.random(),
-    phone,
-    name,
-    lastMessage: messageText,
-    timestamp: new Date().toISOString(),
-    category,
-    priority,
-    suggestedAction,
-    copyMessage,
-    tagToApply,
-    followUpDate,
-    intent: intentResult.intent,
-    confidence: intentResult.confidence,
-    status: 'new',
-    notes: [],
-    actions: []
-  };
+  return { category, priority, suggestedAction, copyMessage, tagToApply, followUpDate, intent: intentResult.intent, confidence: intentResult.confidence };
 }
 
+// Webhook from extension
 app.post('/webhook/salesgod', (req, res) => {
   console.log('Webhook received:', req.body);
   
-  const { phone, full_name, first_name, last_name, messages_as_string, messages, status } = req.body;
+  const { phone, full_name, messages_as_string, status, isOutgoing } = req.body;
   
-  const name = full_name || `${first_name || ''} ${last_name || ''}`.trim() || 'Unknown';
-  const messageText = messages_as_string || messages || '';
+  if (!phone) {
+    return res.json({ success: false, error: 'No phone number' });
+  }
   
-  const lines = messageText.split('\n').filter(m => m.trim());
-  const lastMessage = lines[lines.length - 1] || messageText;
+  // Skip if marked as outgoing
+  if (isOutgoing) {
+    return res.json({ success: true, skipped: true, reason: 'outgoing message' });
+  }
   
-  const lead = processLead(phone, name, lastMessage);
-  lead.fullConversation = messageText;
+  const cleanPhone = phone.replace(/[^0-9+]/g, '');
   
-  leads.unshift(lead);
-  if (leads.length > 500) leads = leads.slice(0, 500);
+  // Get or create lead
+  if (!leads[cleanPhone]) {
+    leads[cleanPhone] = {
+      id: Date.now(),
+      phone: phone,
+      name: full_name || 'Unknown',
+      messages: [],
+      currentTag: status || '',
+      status: 'active',
+      notes: [],
+      actions: [],
+      createdAt: new Date().toISOString()
+    };
+  }
+  
+  const lead = leads[cleanPhone];
+  
+  // Update name if provided
+  if (full_name && full_name !== 'Unknown') {
+    lead.name = full_name;
+  }
+  
+  // Add new message if it's different from last
+  const lastMsg = lead.messages[lead.messages.length - 1];
+  if (!lastMsg || lastMsg.text !== messages_as_string) {
+    const analysis = processMessage(messages_as_string);
+    
+    lead.messages.push({
+      text: messages_as_string,
+      timestamp: new Date().toISOString(),
+      analysis: analysis
+    });
+    
+    // Update lead category based on latest message
+    lead.category = analysis.category;
+    lead.priority = analysis.priority;
+    lead.suggestedAction = analysis.suggestedAction;
+    lead.copyMessage = analysis.copyMessage;
+    lead.tagToApply = analysis.tagToApply;
+    lead.lastMessageAt = new Date().toISOString();
+  }
+  
+  // Update tag if provided
+  if (status) {
+    lead.currentTag = status;
+  }
   
   console.log('Processed lead:', lead);
   res.json({ success: true, lead });
 });
 
+// Get all leads as array
 app.get('/api/leads', (req, res) => {
-  res.json(leads);
+  const leadsArray = Object.values(leads).sort((a, b) => 
+    new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt)
+  );
+  res.json(leadsArray);
 });
 
-app.post('/api/leads/:id/action', (req, res) => {
-  const id = parseFloat(req.params.id);
+// Update lead
+app.post('/api/leads/:phone/action', (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
   const { action } = req.body;
-  const lead = leads.find(l => l.id === id);
-  if (lead) {
-    lead.actions.push({ action, timestamp: new Date().toISOString() });
-    lead.status = 'handled';
+  if (leads[phone]) {
+    leads[phone].actions.push({ action, timestamp: new Date().toISOString() });
+    leads[phone].status = 'handled';
   }
   res.json({ success: true });
 });
 
-app.post('/api/leads/:id/note', (req, res) => {
-  const id = parseFloat(req.params.id);
+app.post('/api/leads/:phone/note', (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
   const { note } = req.body;
-  const lead = leads.find(l => l.id === id);
-  if (lead) {
-    lead.notes.push({ text: note, timestamp: new Date().toISOString() });
+  if (leads[phone]) {
+    leads[phone].notes.push({ text: note, timestamp: new Date().toISOString() });
   }
   res.json({ success: true });
 });
 
-app.post('/api/leads/:id/status', (req, res) => {
-  const id = parseFloat(req.params.id);
+app.post('/api/leads/:phone/status', (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
   const { status, category } = req.body;
-  const lead = leads.find(l => l.id === id);
-  if (lead) {
-    if (status) lead.status = status;
-    if (category) lead.category = category;
+  if (leads[phone]) {
+    if (status) leads[phone].status = status;
+    if (category) leads[phone].category = category;
   }
   res.json({ success: true });
 });
 
 app.get('/api/test', (req, res) => {
-  res.json({ status: 'AI Lead System Running', leads: leads.length });
+  res.json({ status: 'AI Lead System v2.0 Running', leads: Object.keys(leads).length });
 });
 
 app.post('/api/simulate', (req, res) => {
   const testMessages = [
-    { msg: "Yes I'm interested!", name: "Test Person" },
+    { msg: "Yes I'm interested!", name: "Test Lead 1" },
     { msg: "I'm 35 male, wife is 32, 2 kids", name: "Family Lead" },
     { msg: "Can you call me in April?", name: "April Callback" },
-    { msg: "How much does this cost?", name: "Question Asker" },
-    { msg: "Sure, send me info", name: "Interested Lead" },
-    { msg: "42 male", name: "Single Person" },
-    { msg: "Not interested thanks", name: "Dead Lead" }
+    { msg: "How much does this cost?", name: "Price Question" },
+    { msg: "No thanks too expensive", name: "Dead Lead" },
+    { msg: "Who is this through? What provider?", name: "Question Lead" }
   ];
   
   const test = testMessages[Math.floor(Math.random() * testMessages.length)];
-  const phone = `(555) ${Math.floor(Math.random()*900+100)}-${Math.floor(Math.random()*9000+1000)}`;
+  const phone = `+1555${Math.floor(Math.random()*9000000+1000000)}`;
   
-  const lead = processLead(phone, test.name, test.msg);
-  leads.unshift(lead);
+  req.body = { phone, full_name: test.name, messages_as_string: test.msg };
   
-  console.log('Simulated lead:', lead);
-  res.json({ success: true, lead });
+  // Process it
+  const cleanPhone = phone.replace(/[^0-9+]/g, '');
+  const analysis = processMessage(test.msg);
+  
+  leads[cleanPhone] = {
+    id: Date.now(),
+    phone: phone,
+    name: test.name,
+    messages: [{ text: test.msg, timestamp: new Date().toISOString(), analysis }],
+    category: analysis.category,
+    priority: analysis.priority,
+    suggestedAction: analysis.suggestedAction,
+    copyMessage: analysis.copyMessage,
+    tagToApply: analysis.tagToApply,
+    status: 'active',
+    notes: [],
+    actions: [],
+    createdAt: new Date().toISOString(),
+    lastMessageAt: new Date().toISOString()
+  };
+  
+  res.json({ success: true, lead: leads[cleanPhone] });
+});
+
+app.post('/api/clear', (req, res) => {
+  leads = {};
+  res.json({ success: true });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`AI Lead System running on port ${PORT}`);
+  console.log(`AI Lead System v2.0 running on port ${PORT}`);
 });
