@@ -362,10 +362,10 @@ WHAT YOU KNOW ABOUT THIS LEAD:
       userPrompt = `The lead said "${leadMessage}" - they want a quote! Ask for the age (and gender if needed) of everyone who will be on the plan. Keep it simple.`;
       break;
     case 'call_later':
-      userPrompt = `The lead said "${leadMessage}" - they're not ready right now but left the door open for later. They might have said something like "maybe later" or "when I have time" or "not right now but...". Write a friendly, understanding response that:
-1. Acknowledges their timing without being pushy (like "totally understand" or "no problem")
-2. Asks when specifically would be a good time to reach back out
-Keep it warm and human.`;
+      userPrompt = `The lead said "${leadMessage}" - they mentioned a specific time to follow up (like a month, "April", "next week", etc). Write a SHORT confident response that:
+1. Confirms you'll reach out at that time (e.g. "Sounds good, I'll reach out in April!")
+2. Keep it brief and friendly - no questions, just confirm the follow-up
+Example good responses: "Sounds good, I'll follow up in April!", "Perfect, I'll reach back out then!", "Got it, talk to you in April!"`;
       break;
     default:
       userPrompt = `The lead said "${leadMessage}". Write an appropriate response that moves the conversation toward getting their age for a quote, or addresses whatever they said.`;
@@ -441,7 +441,7 @@ async function processMessage(message, context = {}) {
       priority = 'medium';
       followUpDate = intentResult.followUpDate || 'Later';
       suggestedAction = `📅 Follow up: ${followUpDate}`;
-      copyMessage = await generateAIResponse(message, 'call_later', context) || `Got it, I'll follow up with you ${followUpDate}. Talk soon!`;
+      copyMessage = await generateAIResponse(message, 'call_later', context) || `Sounds good, I'll reach out ${followUpDate}!`;
       tagToApply = 'Follow up';
       break;
       
@@ -539,6 +539,11 @@ app.post('/webhook/salesgod', async (req, res) => {
         lead.copyMessage = analysis.copyMessage;
         lead.tagToApply = analysis.tagToApply;
         lead.parsedData = analysis.parsedData;
+        
+        // Save follow-up date if present
+        if (analysis.followUpDate) {
+          lead.followUpDate = analysis.followUpDate;
+        }
         
         if (analysis.intent === 'medicare') {
           lead.isMedicare = true;
