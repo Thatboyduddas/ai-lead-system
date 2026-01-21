@@ -320,107 +320,144 @@ function detectIntent(message) {
   return { intent: 'review', confidence: 0.3 };
 }
 
-// ============ AI RESPONSE GENERATION ============
-async function generateAIResponse(leadMessage, intent, context = {}) {
-  // Keep it simple - just push for age, give quote, follow up
-  switch (intent) {
-    case 'greeting':
-    case 'soft_positive':
-    case 'wants_quote':
-    case 'has_question':
-      return "Hey! I just need your age for the quote.";
-    case 'call_later':
-      const month = context.followUpDate || 'then';
-      return `Sounds good, I'll follow up ${month}!`;
-    default:
-      return "I just need your age to get you a quote.";
-  }
-}
-
-// ============ MESSAGE TEMPLATES (FALLBACKS) ============
+// ============ MESSAGE TEMPLATES ============
 const MESSAGES = {
-  ageGender: "Alright, what is the age and gender of everyone that will be insured?",
+  ageGender: "Hey! I just need your age for the quote.",
   quote: (low, high) => `Assuming you have no major chronic/critical conditions, you can qualify for plans between $${low}-$${high}/month. Deductibles and networks are customizable ➡️ with $50 copays for primary care, specialists, and urgent care; $250 for ER; $250 for outpatient surgeries; and $500 for inpatient stays. Maximum out of pocket 5k. Plans include free ACA-compliant preventive care (immunizations, physicals, mammograms, Pap smears, colonoscopies).`,
-  medicare: `We don't specialize in Medicare, but here is our referral for Medicare. Her name is Faith, she has been doing this for over a decade. Text her here +1 (352) 900-3966 or get on her calendar for a consultation. PLEASE make sure to mention Jack referred you! https://api.leadconnectorhq.com/widget/bookings/faithinsurancesolcalendar`
+  medicare: `We don't specialize in Medicare, but here is our referral. Her name is Faith, she's been doing this for over a decade. Text her here +1 (352) 900-3966 or get on her calendar. PLEASE mention Jack referred you! https://api.leadconnectorhq.com/widget/bookings/faithinsurancesolcalendar`
 };
 
-async function processMessage(message, context = {}) {
+function processMessage(message, context = {}) {
   const intentResult = detectIntent(message);
+  const { currentTag, quoteSent, referralSent, messageHistory } = context;
+  
+  // Determine conversation stage
+  const isQuoted = currentTag === 'Quoted' || quoteSent;
+  const isMedicareReferred = currentTag === 'Medicare Referral' || referralSent;
   
   let category, priority, suggestedAction, copyMessage, tagToApply, followUpDate;
   
   switch (intentResult.intent) {
     case 'wants_quote':
-      category = 'wants_quote';
-      priority = 'high';
-      suggestedAction = '🔥 HOT LEAD! Send age/gender question';
-      // Use AI for contextual response
-      copyMessage = await generateAIResponse(message, 'wants_quote', context) || MESSAGES.ageGender;
-      tagToApply = 'Age and gender';
+      if (isQuoted) {
+        // Already quoted - they might have questions or want to proceed
+        category = 'question';
+        priority = 'high';
+        suggestedAction = '💬 Already quoted - may have questions or ready to book';
+        copyMessage = "Happy to go over the numbers! Any questions, or ready to get started?";
+      } else {
+        category = 'wants_quote';
+        priority = 'high';
+        suggestedAction = '🔥 HOT LEAD - Need age for quote';
+        copyMessage = "Hey! I just need your age for the quote.";
+        tagToApply = 'Age and gender';
+      }
       break;
       
     case 'gave_age_gender':
-      const { adults, kids, youngestAge, ages } = intentResult.data;
-      const quote = calculateQuote(adults, kids, youngestAge);
-      category = 'ready_for_quote';
-      priority = 'high';
-      suggestedAction = `💰 SEND QUOTE: ${adults} adult(s), ${kids} kid(s), ages: ${ages.join(', ')}, bracket ${quote.bracket}`;
-      copyMessage = MESSAGES.quote(quote.lowPrice, quote.highPrice);
-      tagToApply = 'Quoted';
+      if (isQuoted) {
+        // Already quoted but giving age again? Maybe for family member
+        category = 'question';
+        priority = 'high';
+        suggestedAction = '💬 Already quoted - may be adding family member';
+        copyMessage = "Want me to update the quote to include them?";
+      } else {
+        const { adults, kids, youngestAge, ages } = intentResult.data;
+        const quote = calculateQuote(adults, kids, youngestAge);
+        category = 'ready_for_quote';
+        priority = 'high';
+        suggestedAction = `💰 SEND QUOTE: ${adults} adult(s), ${kids} kid(s), ages: ${ages.join(', ')}, bracket ${quote.bracket}`;
+        copyMessage = MESSAGES.quote(quote.lowPrice, quote.highPrice);
+        tagToApply = 'Quoted';
+      }
       break;
       
     case 'medicare':
-      category = 'medicare';
-      priority = 'medium';
-      suggestedAction = '👴 Medicare lead - send Faith referral';
-      copyMessage = MESSAGES.medicare;
-      tagToApply = 'Medicare Referral';
+      if (isMedicareReferred) {
+        category = 'review';
+        priority = 'low';
+        suggestedAction = '👴 Already sent Medicare referral';
+        copyMessage = "Did you get a chance to reach out to Faith? She's great with Medicare!";
+      } else {
+        category = 'medicare';
+        priority = 'medium';
+        suggestedAction = '👴 Medicare lead - send Faith referral';
+        copyMessage = MESSAGES.medicare;
+        tagToApply = 'Medicare Referral';
+      }
       break;
       
     case 'not_interested':
       category = 'dead';
       priority = 'low';
       suggestedAction = '❌ Not interested - no action needed';
+      copyMessage = null;
       tagToApply = 'Dead';
       break;
       
     case 'call_later':
       category = 'scheduled';
       priority = 'medium';
-      followUpDate = intentResult.followUpDate || 'Later';
+      followUpDate = intentResult.followUpDate || 'later';
       suggestedAction = `📅 Follow up: ${followUpDate}`;
-      copyMessage = await generateAIResponse(message, 'call_later', context) || `Sounds good, I'll reach out ${followUpDate}!`;
+      copyMessage = `Sounds good, I'll follow up ${followUpDate}!`;
       tagToApply = 'Follow up';
       break;
       
     case 'has_question':
       category = 'question';
       priority = 'high';
-      suggestedAction = '❓ Has a question - AI generated response';
-      copyMessage = await generateAIResponse(message, 'has_question', context);
+      if (isQuoted) {
+        suggestedAction = '❓ Question about quote - answer and close';
+        copyMessage = "Happy to answer! What's your question?";
+      } else {
+        suggestedAction = '❓ Has question - answer then get age';
+        copyMessage = "Happy to help! What's your age? I'll get you numbers and answer any questions.";
+      }
       break;
       
     case 'greeting':
-      category = 'soft_positive';
-      priority = 'medium';
-      suggestedAction = '👋 Greeting - send friendly response with age question';
-      copyMessage = await generateAIResponse(message, 'greeting', context) || "Hey there! For the health insurance quote, I just need your age - what've you got?";
-      tagToApply = 'Age and gender';
+      if (isQuoted) {
+        category = 'soft_positive';
+        priority = 'high';
+        suggestedAction = '👋 Greeting after quote - push for booking';
+        copyMessage = "Hey! Did you get a chance to look at those numbers? Any questions?";
+      } else {
+        category = 'soft_positive';
+        priority = 'medium';
+        suggestedAction = '👋 Greeting - ask for age';
+        copyMessage = "Hey! I just need your age for the quote.";
+        tagToApply = 'Age and gender';
+      }
       break;
       
     case 'soft_positive':
-      category = 'soft_positive';
-      priority = 'medium';
-      suggestedAction = '🤔 Might be interested - send personalized response';
-      copyMessage = await generateAIResponse(message, 'soft_positive', context) || MESSAGES.ageGender;
-      tagToApply = 'Age and gender';
+      if (isQuoted) {
+        category = 'soft_positive';
+        priority = 'high';
+        suggestedAction = '🤔 Interested after quote - push for booking';
+        copyMessage = "Great! When works for a quick 10-min call to get you set up?";
+      } else {
+        category = 'soft_positive';
+        priority = 'medium';
+        suggestedAction = '🤔 Interested - ask for age';
+        copyMessage = "Hey! I just need your age for the quote.";
+        tagToApply = 'Age and gender';
+      }
       break;
       
     default:
-      category = 'review';
-      priority = 'medium';
-      suggestedAction = '👀 REVIEW - AI generated response';
-      copyMessage = await generateAIResponse(message, 'review', context);
+      if (isQuoted) {
+        category = 'review';
+        priority = 'medium';
+        suggestedAction = '👀 Review - already quoted';
+        copyMessage = "Any questions on those numbers? Happy to go over the details!";
+      } else {
+        category = 'review';
+        priority = 'medium';
+        suggestedAction = '👀 Review - need age';
+        copyMessage = "Hey! I just need your age for the quote.";
+      }
   }
   
   return { 
@@ -478,9 +515,33 @@ app.post('/webhook/salesgod', async (req, res) => {
     if (!lastMsg || lastMsg.text !== messages_as_string || lastMsg.isOutgoing !== !!isOutgoing) {
       
       let analysis = null;
-      if (!isOutgoing) {
-        // Pass context to processMessage for better AI responses
-        analysis = await processMessage(messages_as_string, { currentTag: lead.currentTag });
+      
+      if (isOutgoing) {
+        // OUTGOING MESSAGE - We sent something, clear suggestions
+        lead.category = 'waiting';
+        lead.priority = 'low';
+        lead.suggestedAction = '⏳ Waiting for response';
+        lead.copyMessage = null;
+        lead.tagToApply = null;
+        
+        // Track what we sent
+        const msgLower = messages_as_string.toLowerCase();
+        if (msgLower.includes('qualify for plans between') || msgLower.includes('deductibles and networks')) {
+          lead.quoteSent = true;
+          lead.quoteSentAt = new Date().toISOString();
+        }
+        if (msgLower.includes('faith') && (msgLower.includes('medicare') || msgLower.includes('352'))) {
+          lead.referralSent = true;
+        }
+        
+      } else {
+        // INCOMING MESSAGE - Analyze and suggest response
+        analysis = processMessage(messages_as_string, { 
+          currentTag: lead.currentTag,
+          quoteSent: lead.quoteSent,
+          referralSent: lead.referralSent,
+          messageHistory: lead.messages
+        });
         lead.category = analysis.category;
         lead.priority = analysis.priority;
         lead.suggestedAction = analysis.suggestedAction;
@@ -488,7 +549,6 @@ app.post('/webhook/salesgod', async (req, res) => {
         lead.tagToApply = analysis.tagToApply;
         lead.parsedData = analysis.parsedData;
         
-        // Save follow-up date if present
         if (analysis.followUpDate) {
           lead.followUpDate = analysis.followUpDate;
         }
@@ -611,7 +671,7 @@ app.post('/api/simulate', async (req, res) => {
   const test = testMessages[Math.floor(Math.random() * testMessages.length)];
   const phone = `+1555${Math.floor(Math.random()*9000000+1000000)}`;
   const cleanPhone = phone.replace(/[^0-9+]/g, '');
-  const analysis = await processMessage(test.msg);
+  const analysis = processMessage(test.msg);
   
   const lead = {
     id: Date.now(),
