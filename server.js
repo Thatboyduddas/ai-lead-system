@@ -1,14 +1,59 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const { Pool } = require('pg');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
 
-// Store leads grouped by phone
-let leads = {};
+// PostgreSQL connection - Railway provides DATABASE_URL automatically
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+});
+
+// Initialize database table
+async function initDB() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS leads (
+        phone VARCHAR(50) PRIMARY KEY,
+        data JSONB NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('Database initialized');
+  } catch (err) {
+    console.error('Database init error:', err);
+  }
+}
+
+// Helper functions for database operations
+async function getLead(phone) {
+  const result = await pool.query('SELECT data FROM leads WHERE phone = $1', [phone]);
+  return result.rows[0]?.data || null;
+}
+
+async function saveLead(phone, data) {
+  await pool.query(`
+    INSERT INTO leads (phone, data, updated_at) 
+    VALUES ($1, $2, NOW())
+    ON CONFLICT (phone) 
+    DO UPDATE SET data = $2, updated_at = NOW()
+  `, [phone, JSON.stringify(data)]);
+}
+
+async function getAllLeads() {
+  const result = await pool.query('SELECT data FROM leads ORDER BY updated_at DESC');
+  return result.rows.map(row => row.data);
+}
+
+async function clearAllLeads() {
+  await pool.query('DELETE FROM leads');
+}
 
 const PRICING = {
   low: {
@@ -94,13 +139,11 @@ function parseAgeGender(message) {
 function detectIntent(message) {
   const text = message.toLowerCase();
   
-  // Stop words - not interested
   const stopWords = ['stop', 'unsubscribe', 'remove', 'not interested', 'no thanks', 'leave me alone', 'already have', 'all good', 'all set', 'im good', "i'm good", 'pass', 'nope', 'nah', 'no thank', 'dont text', "don't text", 'too pricey', 'too expensive', 'cant afford', "can't afford"];
   for (const word of stopWords) {
     if (text.includes(word)) return { intent: 'not_interested', confidence: 0.9 };
   }
   
-  // Check for age/gender info
   const hasAge = text.match(/\d{2}/);
   const hasGender = text.includes('male') || text.includes('female') || text.match(/\b(m|f)\b/) || text.includes('just me');
   if (hasAge && (hasGender || text.includes('wife') || text.includes('husband') || text.includes('kid'))) {
@@ -108,13 +151,11 @@ function detectIntent(message) {
     return { intent: 'gave_age_gender', confidence: 0.95, data: ageGender };
   }
   
-  // Wants quote / interested
   const wantsQuoteWords = ['yes', 'yeah', 'yea', 'sure', 'ok', 'okay', 'interested', 'info', 'quote', 'price', 'cost', 'how much', 'tell me more', 'sounds good', "let's do it", 'sign me up', 'need insurance', 'fine', 'go ahead', 'send', 'want a quote', 'can you send'];
   for (const word of wantsQuoteWords) {
     if (text.includes(word)) return { intent: 'wants_quote', confidence: 0.85 };
   }
   
-  // Call me later
   const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
   const laterWords = ['later', 'next week', 'next month', 'few weeks', 'busy', 'not right now', 'call me', 'text me', 'get back'];
   for (const month of months) {
@@ -124,7 +165,6 @@ function detectIntent(message) {
     if (text.includes(word)) return { intent: 'call_later', confidence: 0.8 };
   }
   
-  // Questions
   if (text.includes('?') || text.includes('who is this') || text.includes('what provider') || text.includes('what company')) {
     return { intent: 'has_question', confidence: 0.7 };
   }
@@ -186,7 +226,7 @@ function processMessage(message) {
 }
 
 // Webhook from extension
-app.post('/webhook/salesgod', (req, res) => {
+app.post('/webhook/salesgod', async (req, res) => {
   console.log('Webhook received:', req.body);
   
   const { phone, full_name, messages_as_string, status, isOutgoing } = req.body;
@@ -195,107 +235,141 @@ app.post('/webhook/salesgod', (req, res) => {
     return res.json({ success: false, error: 'No phone number' });
   }
   
-  // Skip if marked as outgoing
   if (isOutgoing) {
     return res.json({ success: true, skipped: true, reason: 'outgoing message' });
   }
   
   const cleanPhone = phone.replace(/[^0-9+]/g, '');
   
-  // Get or create lead
-  if (!leads[cleanPhone]) {
-    leads[cleanPhone] = {
-      id: Date.now(),
-      phone: phone,
-      name: full_name || 'Unknown',
-      messages: [],
-      currentTag: status || '',
-      status: 'active',
-      notes: [],
-      actions: [],
-      createdAt: new Date().toISOString()
-    };
-  }
-  
-  const lead = leads[cleanPhone];
-  
-  // Update name if provided
-  if (full_name && full_name !== 'Unknown') {
-    lead.name = full_name;
-  }
-  
-  // Add new message if it's different from last
-  const lastMsg = lead.messages[lead.messages.length - 1];
-  if (!lastMsg || lastMsg.text !== messages_as_string) {
-    const analysis = processMessage(messages_as_string);
+  try {
+    // Get or create lead
+    let lead = await getLead(cleanPhone);
     
-    lead.messages.push({
-      text: messages_as_string,
-      timestamp: new Date().toISOString(),
-      analysis: analysis
-    });
+    if (!lead) {
+      lead = {
+        id: Date.now(),
+        phone: phone,
+        name: full_name || 'Unknown',
+        messages: [],
+        currentTag: status || '',
+        status: 'active',
+        notes: [],
+        actions: [],
+        createdAt: new Date().toISOString()
+      };
+    }
     
-    // Update lead category based on latest message
-    lead.category = analysis.category;
-    lead.priority = analysis.priority;
-    lead.suggestedAction = analysis.suggestedAction;
-    lead.copyMessage = analysis.copyMessage;
-    lead.tagToApply = analysis.tagToApply;
-    lead.lastMessageAt = new Date().toISOString();
+    // Update name if provided
+    if (full_name && full_name !== 'Unknown') {
+      lead.name = full_name;
+    }
+    
+    // Add new message if it's different from last
+    const lastMsg = lead.messages[lead.messages.length - 1];
+    if (!lastMsg || lastMsg.text !== messages_as_string) {
+      const analysis = processMessage(messages_as_string);
+      
+      lead.messages.push({
+        text: messages_as_string,
+        timestamp: new Date().toISOString(),
+        analysis: analysis
+      });
+      
+      lead.category = analysis.category;
+      lead.priority = analysis.priority;
+      lead.suggestedAction = analysis.suggestedAction;
+      lead.copyMessage = analysis.copyMessage;
+      lead.tagToApply = analysis.tagToApply;
+      lead.lastMessageAt = new Date().toISOString();
+    }
+    
+    if (status) {
+      lead.currentTag = status;
+    }
+    
+    // Save to database
+    await saveLead(cleanPhone, lead);
+    
+    console.log('Processed lead:', lead);
+    res.json({ success: true, lead });
+  } catch (err) {
+    console.error('Webhook error:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
-  
-  // Update tag if provided
-  if (status) {
-    lead.currentTag = status;
-  }
-  
-  console.log('Processed lead:', lead);
-  res.json({ success: true, lead });
 });
 
 // Get all leads as array
-app.get('/api/leads', (req, res) => {
-  const leadsArray = Object.values(leads).sort((a, b) => 
-    new Date(b.lastMessageAt || b.createdAt) - new Date(a.lastMessageAt || a.createdAt)
-  );
-  res.json(leadsArray);
+app.get('/api/leads', async (req, res) => {
+  try {
+    const leads = await getAllLeads();
+    res.json(leads);
+  } catch (err) {
+    console.error('Get leads error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Update lead
-app.post('/api/leads/:phone/action', (req, res) => {
+app.post('/api/leads/:phone/action', async (req, res) => {
   const phone = req.params.phone.replace(/[^0-9+]/g, '');
   const { action } = req.body;
-  if (leads[phone]) {
-    leads[phone].actions.push({ action, timestamp: new Date().toISOString() });
-    leads[phone].status = 'handled';
+  
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      lead.actions.push({ action, timestamp: new Date().toISOString() });
+      lead.status = 'handled';
+      await saveLead(phone, lead);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
-  res.json({ success: true });
 });
 
-app.post('/api/leads/:phone/note', (req, res) => {
+app.post('/api/leads/:phone/note', async (req, res) => {
   const phone = req.params.phone.replace(/[^0-9+]/g, '');
   const { note } = req.body;
-  if (leads[phone]) {
-    leads[phone].notes.push({ text: note, timestamp: new Date().toISOString() });
+  
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      lead.notes.push({ text: note, timestamp: new Date().toISOString() });
+      await saveLead(phone, lead);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
-  res.json({ success: true });
 });
 
-app.post('/api/leads/:phone/status', (req, res) => {
+app.post('/api/leads/:phone/status', async (req, res) => {
   const phone = req.params.phone.replace(/[^0-9+]/g, '');
   const { status, category } = req.body;
-  if (leads[phone]) {
-    if (status) leads[phone].status = status;
-    if (category) leads[phone].category = category;
+  
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      if (status) lead.status = status;
+      if (category) lead.category = category;
+      await saveLead(phone, lead);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
-  res.json({ success: true });
 });
 
-app.get('/api/test', (req, res) => {
-  res.json({ status: 'AI Lead System v2.0 Running', leads: Object.keys(leads).length });
+app.get('/api/test', async (req, res) => {
+  try {
+    const leads = await getAllLeads();
+    res.json({ status: 'AI Lead System v2.1 Running (PostgreSQL)', leads: leads.length });
+  } catch (err) {
+    res.json({ status: 'AI Lead System v2.1 Running (DB Error)', error: err.message });
+  }
 });
 
-app.post('/api/simulate', (req, res) => {
+app.post('/api/simulate', async (req, res) => {
   const testMessages = [
     { msg: "Yes I'm interested!", name: "Test Lead 1" },
     { msg: "I'm 35 male, wife is 32, 2 kids", name: "Family Lead" },
@@ -307,14 +381,10 @@ app.post('/api/simulate', (req, res) => {
   
   const test = testMessages[Math.floor(Math.random() * testMessages.length)];
   const phone = `+1555${Math.floor(Math.random()*9000000+1000000)}`;
-  
-  req.body = { phone, full_name: test.name, messages_as_string: test.msg };
-  
-  // Process it
   const cleanPhone = phone.replace(/[^0-9+]/g, '');
   const analysis = processMessage(test.msg);
   
-  leads[cleanPhone] = {
+  const lead = {
     id: Date.now(),
     phone: phone,
     name: test.name,
@@ -331,15 +401,28 @@ app.post('/api/simulate', (req, res) => {
     lastMessageAt: new Date().toISOString()
   };
   
-  res.json({ success: true, lead: leads[cleanPhone] });
+  try {
+    await saveLead(cleanPhone, lead);
+    res.json({ success: true, lead });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
-app.post('/api/clear', (req, res) => {
-  leads = {};
-  res.json({ success: true });
+app.post('/api/clear', async (req, res) => {
+  try {
+    await clearAllLeads();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`AI Lead System v2.0 running on port ${PORT}`);
+
+// Initialize database then start server
+initDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`AI Lead System v2.1 running on port ${PORT}`);
+  });
 });
