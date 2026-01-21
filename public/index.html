@@ -452,6 +452,25 @@
       margin-top: 10px;
     }
 
+    .waiting-state, .dead-state {
+      padding: 20px;
+      text-align: center;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    
+    .waiting-state {
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      color: #60a5fa;
+    }
+    
+    .dead-state {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -765,7 +784,7 @@
           ${lead.copyMessage ? `
             <div class="copy-suggestion">
               <div class="copy-suggestion-header">
-                <span class="copy-suggestion-title">✨ Suggested Response</span>
+                <span class="copy-suggestion-title">✨ SUGGESTED RESPONSE</span>
                 <span class="copy-suggestion-tag">${lead.tagToApply || 'None'}</span>
               </div>
               <div class="copy-suggestion-text">${lead.copyMessage}</div>
@@ -774,6 +793,14 @@
                 <button class="send-btn" onclick="sendMessage(this)">Send in SalesGod</button>
               </div>
               <div class="auto-send-note">Requires SalesGod tab open with this contact selected</div>
+            </div>
+          ` : lead.category === 'waiting' ? `
+            <div class="waiting-state">
+              <span>⏳ Waiting for response - you already replied</span>
+            </div>
+          ` : lead.category === 'dead' ? `
+            <div class="dead-state">
+              <span>❌ Not interested - no action needed</span>
             </div>
           ` : ''}
           <div class="quick-actions">
