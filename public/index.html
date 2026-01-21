@@ -141,6 +141,16 @@
         <button class="filter-tab" data-filter="question" onclick="setFilter('question')">❓ Q's</button>
         <button class="filter-tab" data-filter="handled" onclick="setFilter('handled')">✓ Done</button>
       </div>
+      <div class="filter-tabs" style="border-bottom:none;padding-top:0;">
+        <span style="font-size:10px;color:#64748b;padding:4px 8px;">Tags:</span>
+        <button class="filter-tab" data-filter="tag:Age and gender" onclick="setFilter('tag:Age and gender')">Age/Gender</button>
+        <button class="filter-tab" data-filter="tag:Quoted" onclick="setFilter('tag:Quoted')">Quoted</button>
+        <button class="filter-tab" data-filter="tag:Follow up" onclick="setFilter('tag:Follow up')">Follow up</button>
+        <button class="filter-tab" data-filter="tag:Ghosted" onclick="setFilter('tag:Ghosted')">Ghosted</button>
+        <button class="filter-tab" data-filter="tag:Deadline" onclick="setFilter('tag:Deadline')">Deadline</button>
+        <button class="filter-tab" data-filter="tag:Sold" onclick="setFilter('tag:Sold')">Sold</button>
+        <button class="filter-tab" data-filter="tag:Appointment Set" onclick="setFilter('tag:Appointment Set')">Appt Set</button>
+      </div>
       <div class="leads-list" id="leads-list"></div>
     </div>
 
@@ -180,7 +190,8 @@
     function setFilter(filter) {
       currentFilter = filter;
       document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-      document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
+      const btn = document.querySelector(`[data-filter="${filter}"]`);
+      if (btn) btn.classList.add('active');
       renderLeads();
     }
 
@@ -211,6 +222,9 @@
       
       if (currentFilter === 'handled') {
         filtered = filtered.filter(l => l.status === 'handled');
+      } else if (currentFilter.startsWith('tag:')) {
+        const tagName = currentFilter.replace('tag:', '');
+        filtered = filtered.filter(l => l.currentTag === tagName);
       } else if (currentFilter !== 'all') {
         filtered = filtered.filter(l => l.category === currentFilter && l.status !== 'handled');
       }
