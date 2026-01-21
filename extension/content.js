@@ -1,5 +1,5 @@
-// Duddas CRM v3.2 - Chrome Extension
-// Background updates + Auto-send fix
+// Duddas CRM v3.3 - Chrome Extension
+// Fixed auto-send for SalesGod
 
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
 let lastSentHash = "";
@@ -59,27 +59,16 @@ function extractConversationData() {
       }
       
       if (cleanText.length > 0) {
-        allMessages.push({
-          text: cleanText,
-          isOutgoing: isOutgoing
-        });
+        allMessages.push({ text: cleanText, isOutgoing: isOutgoing });
       }
     }
   });
   
-  return { 
-    contactName, 
-    phone, 
-    currentTag, 
-    messages: allMessages,
-    lastMessage: allMessages.length > 0 ? allMessages[allMessages.length - 1] : null,
-    hasReferral
-  };
+  return { contactName, phone, currentTag, messages: allMessages, lastMessage: allMessages.length > 0 ? allMessages[allMessages.length - 1] : null, hasReferral };
 }
 
 function sendToDashboard(data) {
   if (!data.phone || data.messages.length === 0) return;
-  
   const lastMsg = data.lastMessage;
   if (!lastMsg) return;
   
@@ -87,235 +76,114 @@ function sendToDashboard(data) {
   if (dataHash === lastSentHash) return;
   lastSentHash = dataHash;
   
-  const payload = {
-    phone: data.phone,
-    full_name: data.contactName,
-    messages_as_string: lastMsg.text,
-    status: data.currentTag || "new",
-    isOutgoing: lastMsg.isOutgoing,
-    messageCount: data.messages.length,
-    hasReferral: data.hasReferral
-  };
+  const payload = { phone: data.phone, full_name: data.contactName, messages_as_string: lastMsg.text, status: data.currentTag || "new", isOutgoing: lastMsg.isOutgoing, messageCount: data.messages.length, hasReferral: data.hasReferral };
   
-  console.log("📤 Duddas: Sending to dashboard", payload);
-  
-  fetch(DASHBOARD_URL + "/webhook/salesgod", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  }).then(r => r.json()).then(result => {
-    console.log("✅ Duddas: Sent!", result);
-    showNotification("Synced: " + data.contactName, lastMsg.isOutgoing ? "outgoing" : "incoming");
-  }).catch(err => {
-    console.error("❌ Duddas: Error", err);
-  });
-}
-
-function showNotification(message, type) {
-  const existing = document.getElementById("duddas-notif");
-  if (existing) existing.remove();
-  
-  const notif = document.createElement("div");
-  notif.id = "duddas-notif";
-  
-  notif.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    background: ${type === 'outgoing' ? '#3b82f6' : '#22c55e'};
-    color: white;
-    padding: 10px 16px;
-    border-radius: 8px;
-    z-index: 99999;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  `;
-  
-  notif.textContent = message;
-  document.body.appendChild(notif);
-  setTimeout(() => notif.remove(), 2000);
+  fetch(DASHBOARD_URL + "/webhook/salesgod", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).then(r => r.json()).then(result => console.log("✅ Synced")).catch(err => console.error("❌ Error", err));
 }
 
 function findMessageInput() {
   const textareas = document.querySelectorAll('textarea');
   for (const ta of textareas) {
-    const placeholder = ta.getAttribute('placeholder') || '';
-    if (placeholder.toLowerCase().includes('message') || placeholder.toLowerCase().includes('type')) {
-      return ta;
-    }
-  }
-  for (const ta of textareas) {
-    const rect = ta.getBoundingClientRect();
-    if (rect.top > window.innerHeight / 2) {
-      return ta;
-    }
+    const placeholder = (ta.getAttribute('placeholder') || '').toLowerCase();
+    if (placeholder.includes('message') || placeholder.includes('type')) return ta;
   }
   return textareas[textareas.length - 1];
 }
 
 function findSendButton() {
-  const allSvgs = document.querySelectorAll('svg');
-  
-  for (const svg of allSvgs) {
+  const allSvgs = Array.from(document.querySelectorAll('svg'));
+  const bottomSvgs = allSvgs.filter(svg => {
     const rect = svg.getBoundingClientRect();
-    if (rect.top > window.innerHeight - 150) {
-      const paths = svg.querySelectorAll('path');
-      for (const path of paths) {
-        const d = path.getAttribute('d') || '';
-        if (d.includes('l') || d.includes('L') || d.includes('polygon') || d.length > 10) {
-          let clickable = svg.closest('button') || svg.closest('[role="button"]') || svg.parentElement;
-          if (clickable) {
-            return clickable;
-          }
-        }
-      }
-    }
+    return rect.top > window.innerHeight - 150 && rect.width > 0;
+  });
+  
+  let rightmost = null;
+  let maxRight = 0;
+  for (const svg of bottomSvgs) {
+    const rect = svg.getBoundingClientRect();
+    if (rect.right > maxRight) { maxRight = rect.right; rightmost = svg; }
   }
   
-  const buttons = document.querySelectorAll('button, [role="button"], .btn, [class*="send"]');
-  for (const btn of buttons) {
-    const rect = btn.getBoundingClientRect();
-    if (rect.top > window.innerHeight - 150 && rect.left > window.innerWidth - 300) {
-      if (btn.querySelector('svg') || btn.innerHTML.includes('send') || btn.innerHTML.includes('Send')) {
-        return btn;
-      }
-    }
+  if (rightmost) {
+    const clickable = rightmost.closest('button') || rightmost.closest('[role="button"]') || rightmost.parentElement;
+    return clickable || rightmost;
   }
-  
   return null;
 }
 
 async function typeAndSend(message) {
   const textarea = findMessageInput();
-  if (!textarea) {
-    showSendError("Could not find message input");
-    return false;
-  }
+  if (!textarea) { showSendError("Could not find message input"); return false; }
   
   textarea.focus();
-  textarea.value = message;
-  
-  const inputEvent = new Event('input', { bubbles: true, cancelable: true });
-  textarea.dispatchEvent(inputEvent);
+  textarea.click();
+  textarea.value = '';
   
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
   nativeInputValueSetter.call(textarea, message);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
   
-  await new Promise(r => setTimeout(r, 500));
+  await new Promise(r => setTimeout(r, 800));
   
   const sendBtn = findSendButton();
-  if (!sendBtn) {
-    showSendError("Could not find send button");
-    return false;
-  }
+  if (!sendBtn) { showSendError("Could not find send button"); return false; }
   
   sendBtn.click();
   sendBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+  
+  if (sendBtn.tagName.toLowerCase() === 'svg') {
+    sendBtn.parentElement?.click();
+  }
   
   showSendSuccess();
   return true;
 }
 
-function showSendError(message) {
-  const existing = document.getElementById("duddas-send-notif");
-  if (existing) existing.remove();
-  
-  const notif = document.createElement("div");
-  notif.id = "duddas-send-notif";
-  notif.style.cssText = `
-    position: fixed; top: 20px; right: 20px; background: #ef4444; color: white;
-    padding: 12px 18px; border-radius: 8px; z-index: 99999;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px;
-  `;
-  notif.innerHTML = `<strong>❌ Duddas Auto-Send</strong><br>${message}`;
-  document.body.appendChild(notif);
-  setTimeout(() => notif.remove(), 5000);
+function showSendError(msg) {
+  const n = document.createElement("div");
+  n.id = "duddas-send-notif";
+  n.style.cssText = "position:fixed;top:20px;right:20px;background:#ef4444;color:white;padding:12px 18px;border-radius:8px;z-index:99999;font-family:sans-serif;font-size:13px;";
+  n.innerHTML = `<strong>❌ Duddas Auto-Send</strong><br>${msg}`;
+  document.body.appendChild(n);
+  setTimeout(() => n.remove(), 5000);
 }
 
 function showSendSuccess() {
   const existing = document.getElementById("duddas-send-notif");
   if (existing) existing.remove();
-  
-  const notif = document.createElement("div");
-  notif.id = "duddas-send-notif";
-  notif.style.cssText = `
-    position: fixed; top: 20px; right: 20px; background: #22c55e; color: white;
-    padding: 12px 18px; border-radius: 8px; z-index: 99999;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px;
-  `;
-  notif.innerHTML = `<strong>✅ Duddas Auto-Send</strong><br>Message sent!`;
-  document.body.appendChild(notif);
-  setTimeout(() => notif.remove(), 3000);
+  const n = document.createElement("div");
+  n.id = "duddas-send-notif";
+  n.style.cssText = "position:fixed;top:20px;right:20px;background:#22c55e;color:white;padding:12px 18px;border-radius:8px;z-index:99999;font-family:sans-serif;font-size:13px;";
+  n.innerHTML = "<strong>✅ Duddas Auto-Send</strong><br>Message sent!";
+  document.body.appendChild(n);
+  setTimeout(() => n.remove(), 3000);
 }
 
 async function checkPendingSends() {
   if (!currentPhone) return;
-  
   try {
     const res = await fetch(DASHBOARD_URL + `/api/leads/${encodeURIComponent(currentPhone)}/pending`);
     const data = await res.json();
-    
     if (data.pending && data.message) {
       const success = await typeAndSend(data.message);
-      if (success) {
-        await fetch(DASHBOARD_URL + `/api/leads/${encodeURIComponent(currentPhone)}/pending`, { method: 'DELETE' });
-      }
+      if (success) await fetch(DASHBOARD_URL + `/api/leads/${encodeURIComponent(currentPhone)}/pending`, { method: 'DELETE' });
     }
   } catch (err) {}
 }
 
 function checkAndSync() {
   const data = extractConversationData();
-  if (data.messages.length > 0 && data.phone) {
-    sendToDashboard(data);
-  }
-}
-
-function startMutationObserver() {
-  const observer = new MutationObserver((mutations) => {
-    let hasNewContent = false;
-    for (const mutation of mutations) {
-      if (mutation.addedNodes.length > 0) {
-        for (const node of mutation.addedNodes) {
-          if (node.nodeType === 1) {
-            if (node.classList?.contains('text-bubble') || node.querySelector?.('.text-bubble')) {
-              hasNewContent = true;
-              break;
-            }
-          }
-        }
-      }
-      if (hasNewContent) break;
-    }
-    if (hasNewContent) {
-      setTimeout(checkAndSync, 300);
-    }
-  });
-  
-  observer.observe(document.body, { childList: true, subtree: true });
+  if (data.messages.length > 0 && data.phone) sendToDashboard(data);
 }
 
 function startWatching() {
   if (isWatching) return;
   isWatching = true;
-  
-  console.log("🚀 Duddas CRM v3.2 Running");
-  
+  console.log("🚀 Duddas CRM v3.3 Running");
   setTimeout(checkAndSync, 1000);
-  startMutationObserver();
   setInterval(checkAndSync, 3000);
   setInterval(checkPendingSends, 2000);
-  
   document.addEventListener("click", () => setTimeout(checkAndSync, 500));
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) setTimeout(checkAndSync, 1000);
-  });
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startWatching);
-} else {
-  startWatching();
-}
+startWatching();
