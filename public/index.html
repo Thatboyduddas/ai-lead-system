@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Lead Intelligence v2.0</title>
+  <title>AI Lead Intelligence v3.0</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
     
-    .header { background: #1e293b; border-bottom: 1px solid #334155; padding: 16px 24px; position: sticky; top: 0; z-index: 50; }
-    .header-content { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
-    .logo { font-size: 20px; font-weight: 700; color: #f8fafc; }
+    .header { background: #1e293b; border-bottom: 1px solid #334155; padding: 12px 24px; position: sticky; top: 0; z-index: 50; }
+    .header-content { max-width: 1800px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 18px; font-weight: 700; color: #f8fafc; }
     .logo span { color: #3b82f6; }
-    .header-actions { display: flex; gap: 10px; }
-    .btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+    .header-actions { display: flex; gap: 8px; }
+    .btn { padding: 6px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; }
     .btn-primary { background: #3b82f6; color: white; }
     .btn-primary:hover { background: #2563eb; }
     .btn-secondary { background: #334155; color: #e2e8f0; }
@@ -21,183 +21,131 @@
     .btn-success { background: #10b981; color: white; }
     .btn-success:hover { background: #059669; }
     
-    .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    .main-layout { display: flex; height: calc(100vh - 53px); }
     
-    .stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 24px; }
-    .stat-card { background: #1e293b; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #334155; }
-    .stat-icon { font-size: 28px; margin-bottom: 8px; }
-    .stat-value { font-size: 32px; font-weight: 700; }
-    .stat-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
-    .stat-card.hot .stat-value { color: #ef4444; }
-    .stat-card.quote .stat-value { color: #10b981; }
-    .stat-card.scheduled .stat-value { color: #3b82f6; }
-    .stat-card.question .stat-value { color: #a855f7; }
-    .stat-card.dead .stat-value { color: #64748b; }
-    .stat-card.review .stat-value { color: #f59e0b; }
-    
-    .filters { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 24px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; border: 1px solid #334155; }
-    .filter-btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; background: #334155; color: #94a3b8; transition: all 0.2s; }
-    .filter-btn:hover { background: #475569; color: #e2e8f0; }
-    .filter-btn.active { background: #3b82f6; color: white; }
-    .search-input { margin-left: auto; padding: 8px 16px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 14px; width: 250px; }
+    /* Left sidebar - lead list */
+    .leads-sidebar { width: 320px; background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; }
+    .sidebar-header { padding: 12px; border-bottom: 1px solid #334155; }
+    .search-input { width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 14px; }
     .search-input::placeholder { color: #64748b; }
     .search-input:focus { outline: none; border-color: #3b82f6; }
     
-    .leads-grid { display: grid; gap: 16px; }
-    .lead-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; overflow: hidden; transition: all 0.2s; cursor: pointer; }
-    .lead-card:hover { border-color: #3b82f6; transform: translateY(-2px); }
-    .lead-card.handled { opacity: 0.5; }
+    .filter-tabs { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid #334155; overflow-x: auto; }
+    .filter-tab { padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer; font-size: 11px; font-weight: 500; background: transparent; color: #64748b; white-space: nowrap; }
+    .filter-tab:hover { color: #e2e8f0; }
+    .filter-tab.active { background: #3b82f6; color: white; }
     
-    .lead-header { padding: 16px 20px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
-    .lead-info { display: flex; align-items: center; gap: 12px; }
-    .lead-avatar { width: 40px; height: 40px; border-radius: 50%; background: #334155; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-    .lead-name { font-weight: 600; color: #f8fafc; }
-    .lead-phone { font-size: 13px; color: #64748b; }
-    .lead-tag { font-size: 11px; color: #94a3b8; background: #334155; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
-    .lead-badges { display: flex; gap: 8px; }
-    .badge { padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
-    .badge-hot { background: #7f1d1d; color: #fca5a5; }
-    .badge-quote { background: #064e3b; color: #6ee7b7; }
-    .badge-scheduled { background: #1e3a8a; color: #93c5fd; }
-    .badge-question { background: #581c87; color: #d8b4fe; }
-    .badge-dead { background: #1f2937; color: #9ca3af; }
-    .badge-review { background: #78350f; color: #fcd34d; }
-    .badge-priority { background: #dc2626; color: white; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    .leads-list { flex: 1; overflow-y: auto; }
+    .lead-item { padding: 12px; border-bottom: 1px solid #334155; cursor: pointer; transition: background 0.2s; }
+    .lead-item:hover { background: #334155; }
+    .lead-item.active { background: #3b82f6; }
+    .lead-item.handled { opacity: 0.5; }
+    .lead-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .lead-item-name { font-weight: 600; font-size: 14px; }
+    .lead-item-time { font-size: 11px; color: #64748b; }
+    .lead-item.active .lead-item-time { color: #93c5fd; }
+    .lead-item-preview { font-size: 13px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lead-item.active .lead-item-preview { color: #e2e8f0; }
+    .lead-item-badges { display: flex; gap: 4px; margin-top: 6px; }
+    .mini-badge { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+    .mini-badge.hot { background: #7f1d1d; color: #fca5a5; }
+    .mini-badge.quote { background: #064e3b; color: #6ee7b7; }
+    .mini-badge.scheduled { background: #1e3a8a; color: #93c5fd; }
+    .mini-badge.question { background: #581c87; color: #d8b4fe; }
+    .mini-badge.dead { background: #1f2937; color: #9ca3af; }
+    .mini-badge.review { background: #78350f; color: #fcd34d; }
+    .mini-badge.urgent { background: #dc2626; color: white; }
     
-    .lead-body { padding: 16px 20px; }
-    .lead-message { background: #0f172a; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; border-left: 3px solid #3b82f6; }
-    .lead-message-label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
-    .lead-message-text { color: #e2e8f0; line-height: 1.5; }
-    .lead-action { display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 13px; }
-    .lead-action strong { color: #f8fafc; }
+    /* Right side - conversation */
+    .conversation-panel { flex: 1; display: flex; flex-direction: column; background: #0f172a; }
     
-    .lead-footer { padding: 12px 20px; background: #0f172a; display: flex; justify-content: space-between; align-items: center; }
-    .lead-time { font-size: 12px; color: #64748b; }
-    .lead-messages-count { font-size: 12px; color: #64748b; }
+    .conversation-header { padding: 12px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+    .contact-info { display: flex; align-items: center; gap: 12px; }
+    .contact-avatar { width: 40px; height: 40px; border-radius: 50%; background: #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600; }
+    .contact-details h2 { font-size: 16px; font-weight: 600; }
+    .contact-details p { font-size: 12px; color: #64748b; }
+    .contact-tag { font-size: 11px; color: #94a3b8; background: #334155; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+    .header-actions-right { display: flex; gap: 8px; }
     
-    /* Modal */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px; }
-    .modal-overlay.active { display: flex; }
-    .modal { background: #1e293b; border-radius: 16px; max-width: 700px; width: 100%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
-    .modal-header { padding: 20px 24px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
-    .modal-title { font-size: 18px; font-weight: 600; }
-    .modal-close { background: none; border: none; color: #64748b; font-size: 24px; cursor: pointer; }
-    .modal-close:hover { color: #f8fafc; }
-    .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+    .ai-bar { padding: 10px 20px; background: linear-gradient(90deg, #1e3a8a 0%, #581c87 100%); display: flex; align-items: center; gap: 12px; }
+    .ai-bar-icon { font-size: 16px; }
+    .ai-bar-text { flex: 1; font-size: 13px; }
+    .ai-bar-text strong { color: #c4b5fd; }
     
-    .conversation { margin-bottom: 24px; }
-    .conversation-title { font-size: 14px; font-weight: 600; color: #94a3b8; margin-bottom: 12px; }
-    .message-list { display: flex; flex-direction: column; gap: 12px; max-height: 500px; overflow-y: auto; padding: 12px; background: #0f172a; border-radius: 8px; }
-    .message-item { padding: 10px 14px; border-radius: 8px; max-width: 85%; }
-    .message-item.incoming { background: #334155; align-self: flex-start; border-bottom-left-radius: 4px; }
-    .message-item.outgoing { background: #1d4ed8; align-self: flex-end; border-bottom-right-radius: 4px; }
-    .message-item .text { font-size: 14px; line-height: 1.4; }
-    .message-item .time { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+    .messages-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
     
-    .ai-box { background: linear-gradient(135deg, #1e3a8a 0%, #581c87 100%); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
-    .ai-box-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-    .ai-analysis { font-size: 14px; color: #e2e8f0; margin-bottom: 16px; }
-    .ai-suggestion { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 12px 16px; }
-    .ai-suggestion-label { font-size: 11px; color: #c4b5fd; margin-bottom: 4px; }
-    .ai-suggestion-text { font-size: 14px; font-weight: 500; }
+    .message-bubble { max-width: 70%; padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.4; }
+    .message-bubble.incoming { background: #334155; align-self: flex-start; border-bottom-left-radius: 4px; }
+    .message-bubble.outgoing { background: #3b82f6; align-self: flex-end; border-bottom-right-radius: 4px; }
+    .message-time { font-size: 10px; color: #64748b; margin-top: 4px; }
+    .message-bubble.outgoing .message-time { color: #93c5fd; }
     
-    .copy-box { background: #064e3b; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
-    .copy-box-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #6ee7b7; }
-    .copy-message { background: #0f172a; border-radius: 8px; padding: 14px; font-size: 14px; color: #e2e8f0; line-height: 1.5; margin-bottom: 12px; }
-    .copy-btn { width: 100%; padding: 14px; border-radius: 8px; background: #10b981; color: white; font-size: 16px; font-weight: 600; border: none; cursor: pointer; }
+    .empty-conversation { flex: 1; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 16px; }
+    
+    /* Bottom action area */
+    .action-area { padding: 16px 20px; background: #1e293b; border-top: 1px solid #334155; }
+    
+    .copy-suggestion { background: #064e3b; border-radius: 12px; padding: 12px 16px; margin-bottom: 12px; }
+    .copy-suggestion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .copy-suggestion-title { font-size: 12px; color: #6ee7b7; font-weight: 600; }
+    .copy-suggestion-tag { font-size: 10px; color: #6ee7b7; opacity: 0.7; }
+    .copy-suggestion-text { font-size: 13px; color: #e2e8f0; line-height: 1.4; margin-bottom: 10px; max-height: 60px; overflow-y: auto; }
+    .copy-btn { width: 100%; padding: 10px; border-radius: 8px; background: #10b981; color: white; font-size: 14px; font-weight: 600; border: none; cursor: pointer; }
     .copy-btn:hover { background: #059669; }
     .copy-btn.copied { background: #64748b; }
-    .copy-hint { font-size: 12px; color: #6ee7b7; margin-top: 8px; text-align: center; }
     
-    .quick-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px; }
-    .action-btn { padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+    .quick-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .action-btn { padding: 8px 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 12px; cursor: pointer; transition: all 0.2s; }
     .action-btn:hover { background: #334155; }
     
-    .notes-section { margin-top: 24px; }
-    .notes-title { font-size: 14px; font-weight: 600; color: #94a3b8; margin-bottom: 12px; }
-    .notes-list { margin-bottom: 12px; }
-    .note-item { background: #0f172a; padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
-    .note-time { font-size: 11px; color: #64748b; margin-top: 4px; }
-    .note-input { display: flex; gap: 10px; }
-    .note-input input { flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 14px; }
-    .note-input input:focus { outline: none; border-color: #3b82f6; }
+    .no-lead-selected { display: flex; align-items: center; justify-content: center; height: 100%; color: #64748b; font-size: 18px; }
     
-    .empty-state { text-align: center; padding: 60px 20px; color: #64748b; }
-    .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
-    .empty-state-text { font-size: 16px; }
+    /* Stats bar */
+    .stats-bar { display: flex; gap: 16px; padding: 8px 12px; background: #0f172a; border-bottom: 1px solid #334155; }
+    .stat-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #64748b; }
+    .stat-item .count { font-weight: 700; }
+    .stat-item.hot .count { color: #ef4444; }
+    .stat-item.quote .count { color: #10b981; }
+    .stat-item.scheduled .count { color: #3b82f6; }
+    .stat-item.question .count { color: #a855f7; }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="header-content">
-      <div class="logo">🧠 AI Lead <span>Intelligence</span> v2.0</div>
+      <div class="logo">🧠 AI Lead <span>Intelligence</span></div>
       <div class="header-actions">
-        <button class="btn btn-secondary" onclick="clearLeads()">Clear All</button>
-        <button class="btn btn-primary" onclick="simulateLead()">+ Test Lead</button>
-        <button class="btn btn-success" onclick="loadLeads()">↻ Refresh</button>
+        <button class="btn btn-secondary" onclick="clearLeads()">Clear</button>
+        <button class="btn btn-primary" onclick="simulateLead()">+ Test</button>
+        <button class="btn btn-success" onclick="loadLeads()">↻</button>
       </div>
     </div>
   </div>
 
-  <div class="container">
-    <div class="stats">
-      <div class="stat-card hot">
-        <div class="stat-icon">🔥</div>
-        <div class="stat-value" id="stat-hot">0</div>
-        <div class="stat-label">Wants Quote</div>
+  <div class="main-layout">
+    <div class="leads-sidebar">
+      <div class="sidebar-header">
+        <input type="text" class="search-input" placeholder="Search leads..." id="search" oninput="renderLeads()">
       </div>
-      <div class="stat-card quote">
-        <div class="stat-icon">💰</div>
-        <div class="stat-value" id="stat-quote">0</div>
-        <div class="stat-label">Ready for Quote</div>
+      <div class="stats-bar">
+        <div class="stat-item hot">🔥 <span class="count" id="stat-hot">0</span></div>
+        <div class="stat-item quote">💰 <span class="count" id="stat-quote">0</span></div>
+        <div class="stat-item scheduled">📅 <span class="count" id="stat-scheduled">0</span></div>
+        <div class="stat-item question">❓ <span class="count" id="stat-question">0</span></div>
       </div>
-      <div class="stat-card scheduled">
-        <div class="stat-icon">📅</div>
-        <div class="stat-value" id="stat-scheduled">0</div>
-        <div class="stat-label">Scheduled</div>
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all" onclick="setFilter('all')">All</button>
+        <button class="filter-tab" data-filter="wants_quote" onclick="setFilter('wants_quote')">🔥 Hot</button>
+        <button class="filter-tab" data-filter="ready_for_quote" onclick="setFilter('ready_for_quote')">💰 Ready</button>
+        <button class="filter-tab" data-filter="scheduled" onclick="setFilter('scheduled')">📅 Later</button>
+        <button class="filter-tab" data-filter="question" onclick="setFilter('question')">❓ Q's</button>
+        <button class="filter-tab" data-filter="handled" onclick="setFilter('handled')">✓ Done</button>
       </div>
-      <div class="stat-card question">
-        <div class="stat-icon">❓</div>
-        <div class="stat-value" id="stat-question">0</div>
-        <div class="stat-label">Questions</div>
-      </div>
-      <div class="stat-card dead">
-        <div class="stat-icon">❌</div>
-        <div class="stat-value" id="stat-dead">0</div>
-        <div class="stat-label">Dead</div>
-      </div>
-      <div class="stat-card review">
-        <div class="stat-icon">👀</div>
-        <div class="stat-value" id="stat-review">0</div>
-        <div class="stat-label">Review</div>
-      </div>
+      <div class="leads-list" id="leads-list"></div>
     </div>
 
-    <div class="filters">
-      <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
-      <button class="filter-btn" data-filter="wants_quote" onclick="setFilter('wants_quote')">🔥 Wants Quote</button>
-      <button class="filter-btn" data-filter="ready_for_quote" onclick="setFilter('ready_for_quote')">💰 Ready</button>
-      <button class="filter-btn" data-filter="scheduled" onclick="setFilter('scheduled')">📅 Scheduled</button>
-      <button class="filter-btn" data-filter="question" onclick="setFilter('question')">❓ Questions</button>
-      <input type="text" class="search-input" placeholder="Search name or phone..." id="search" oninput="renderLeads()">
-    </div>
-
-    <div class="leads-grid" id="leads-grid">
-      <div class="empty-state">
-        <div class="empty-state-icon">📭</div>
-        <div class="empty-state-text">No leads yet. Click a contact in SalesGod to see them here.</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
-    <div class="modal">
-      <div class="modal-header">
-        <div class="modal-title" id="modal-title">Lead Details</div>
-        <button class="modal-close" onclick="closeModal()">&times;</button>
-      </div>
-      <div class="modal-body" id="modal-body"></div>
+    <div class="conversation-panel" id="conversation-panel">
+      <div class="no-lead-selected">← Select a lead to view conversation</div>
     </div>
   </div>
 
@@ -212,6 +160,10 @@
         leads = await res.json();
         updateStats();
         renderLeads();
+        if (selectedLead) {
+          const updated = leads.find(l => l.phone === selectedLead.phone);
+          if (updated) openLead(updated.phone);
+        }
       } catch (err) {
         console.error('Error:', err);
       }
@@ -223,85 +175,21 @@
       document.getElementById('stat-quote').textContent = active.filter(l => l.category === 'ready_for_quote').length;
       document.getElementById('stat-scheduled').textContent = active.filter(l => l.category === 'scheduled').length;
       document.getElementById('stat-question').textContent = active.filter(l => l.category === 'question').length;
-      document.getElementById('stat-dead').textContent = leads.filter(l => l.category === 'dead').length;
-      document.getElementById('stat-review').textContent = active.filter(l => l.category === 'review' || !l.category).length;
     }
 
     function setFilter(filter) {
       currentFilter = filter;
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
       document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
       renderLeads();
     }
 
-    function renderLeads() {
-      const search = document.getElementById('search').value.toLowerCase();
-      let filtered = leads;
-      
-      if (currentFilter !== 'all') {
-        filtered = filtered.filter(l => l.category === currentFilter);
-      }
-      if (search) {
-        filtered = filtered.filter(l => 
-          (l.name || '').toLowerCase().includes(search) || 
-          (l.phone || '').includes(search)
-        );
-      }
-
-      if (filtered.length === 0) {
-        document.getElementById('leads-grid').innerHTML = `
-          <div class="empty-state">
-            <div class="empty-state-icon">📭</div>
-            <div class="empty-state-text">No leads match your filter.</div>
-          </div>
-        `;
-        return;
-      }
-
-      document.getElementById('leads-grid').innerHTML = filtered.map(lead => {
-        const badge = getBadge(lead.category);
-        const lastMsg = lead.messages?.[lead.messages.length - 1];
-        const isHandled = lead.status === 'handled';
-        
-        return `
-          <div class="lead-card ${isHandled ? 'handled' : ''}" onclick="openLead('${lead.phone}')">
-            <div class="lead-header">
-              <div class="lead-info">
-                <div class="lead-avatar">${(lead.name || '?')[0].toUpperCase()}</div>
-                <div>
-                  <div class="lead-name">${lead.name || 'Unknown'}</div>
-                  <div class="lead-phone">${lead.phone || ''} ${lead.currentTag ? `<span class="lead-tag">${lead.currentTag}</span>` : ''}</div>
-                </div>
-              </div>
-              <div class="lead-badges">
-                ${lead.priority === 'high' && !isHandled ? '<span class="badge badge-priority">URGENT</span>' : ''}
-                <span class="badge badge-${badge.class}">${badge.icon} ${badge.label}</span>
-              </div>
-            </div>
-            <div class="lead-body">
-              <div class="lead-message">
-                <div class="lead-message-label">Latest message from lead:</div>
-                <div class="lead-message-text">"${lastMsg?.text || 'No messages'}"</div>
-              </div>
-              <div class="lead-action">
-                <strong>→</strong> ${lead.suggestedAction || 'Review this lead'}
-              </div>
-            </div>
-            <div class="lead-footer">
-              <div class="lead-time">${timeAgo(lead.lastMessageAt || lead.createdAt)}</div>
-              <div class="lead-messages-count">${lead.messages?.length || 0} message(s)</div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
     function getBadge(category) {
       const badges = {
-        wants_quote: { icon: '🔥', label: 'WANTS QUOTE', class: 'hot' },
+        wants_quote: { icon: '🔥', label: 'HOT', class: 'hot' },
         ready_for_quote: { icon: '💰', label: 'READY', class: 'quote' },
-        scheduled: { icon: '📅', label: 'SCHEDULED', class: 'scheduled' },
-        question: { icon: '❓', label: 'QUESTION', class: 'question' },
+        scheduled: { icon: '📅', label: 'LATER', class: 'scheduled' },
+        question: { icon: '❓', label: 'Q', class: 'question' },
         dead: { icon: '❌', label: 'DEAD', class: 'dead' },
         review: { icon: '👀', label: 'REVIEW', class: 'review' }
       };
@@ -311,110 +199,135 @@
     function timeAgo(ts) {
       if (!ts) return '';
       const s = Math.floor((Date.now() - new Date(ts)) / 1000);
-      if (s < 60) return 'Just now';
-      if (s < 3600) return Math.floor(s / 60) + 'm ago';
-      if (s < 86400) return Math.floor(s / 3600) + 'h ago';
-      return Math.floor(s / 86400) + 'd ago';
+      if (s < 60) return 'now';
+      if (s < 3600) return Math.floor(s / 60) + 'm';
+      if (s < 86400) return Math.floor(s / 3600) + 'h';
+      return Math.floor(s / 86400) + 'd';
+    }
+
+    function renderLeads() {
+      const search = document.getElementById('search').value.toLowerCase();
+      let filtered = leads;
+      
+      if (currentFilter === 'handled') {
+        filtered = filtered.filter(l => l.status === 'handled');
+      } else if (currentFilter !== 'all') {
+        filtered = filtered.filter(l => l.category === currentFilter && l.status !== 'handled');
+      }
+      
+      if (search) {
+        filtered = filtered.filter(l => 
+          (l.name || '').toLowerCase().includes(search) || 
+          (l.phone || '').includes(search)
+        );
+      }
+
+      const list = document.getElementById('leads-list');
+      
+      if (filtered.length === 0) {
+        list.innerHTML = '<div style="padding:40px;text-align:center;color:#64748b;">No leads found</div>';
+        return;
+      }
+
+      list.innerHTML = filtered.map(lead => {
+        const badge = getBadge(lead.category);
+        const lastMsg = lead.messages?.[lead.messages.length - 1];
+        const isActive = selectedLead?.phone === lead.phone;
+        const isHandled = lead.status === 'handled';
+        
+        return `
+          <div class="lead-item ${isActive ? 'active' : ''} ${isHandled ? 'handled' : ''}" onclick="openLead('${lead.phone}')">
+            <div class="lead-item-header">
+              <span class="lead-item-name">${lead.name || 'Unknown'}</span>
+              <span class="lead-item-time">${timeAgo(lead.lastMessageAt || lead.createdAt)}</span>
+            </div>
+            <div class="lead-item-preview">${lastMsg?.text || 'No messages'}</div>
+            <div class="lead-item-badges">
+              ${lead.priority === 'high' && !isHandled ? '<span class="mini-badge urgent">!</span>' : ''}
+              <span class="mini-badge ${badge.class}">${badge.icon} ${badge.label}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function openLead(phone) {
       const lead = leads.find(l => l.phone === phone);
       if (!lead) return;
       selectedLead = lead;
+      renderLeads();
 
-      document.getElementById('modal-title').textContent = `${lead.name || 'Unknown'} - ${lead.phone}`;
-      
       const badge = getBadge(lead.category);
       const messages = lead.messages || [];
       
-      document.getElementById('modal-body').innerHTML = `
-        <div class="ai-box">
-          <div class="ai-box-title">🤖 AI Analysis</div>
-          <div class="ai-analysis">
-            Category: <strong>${badge.label}</strong> | 
-            Priority: <strong>${lead.priority || 'low'}</strong> |
-            Tag: <strong>${lead.currentTag || 'None'}</strong>
-          </div>
-          <div class="ai-suggestion">
-            <div class="ai-suggestion-label">💡 Suggested Action</div>
-            <div class="ai-suggestion-text">${lead.suggestedAction || 'Review this lead manually'}</div>
-          </div>
-        </div>
-
-        ${lead.copyMessage ? `
-          <div class="copy-box">
-            <div class="copy-box-title">📋 Message to Send</div>
-            <div class="copy-message">${lead.copyMessage}</div>
-            <button class="copy-btn" onclick="copyMessage(this)">📋 COPY MESSAGE</button>
-            <div class="copy-hint">After copying: Paste in SalesGod → Send → Apply "${lead.tagToApply || ''}" tag</div>
-          </div>
-        ` : ''}
-
-        <div class="conversation">
-          <div class="conversation-title">📝 Conversation History (${messages.length} messages)</div>
-          <div class="message-list">
-            ${messages.length === 0 ? '<div style="color:#64748b;text-align:center;padding:20px;">No messages yet</div>' : 
-              messages.map(m => `
-                <div class="message-item ${m.isOutgoing ? 'outgoing' : 'incoming'}">
-                  <div class="text">${m.text}</div>
-                  <div class="time">${m.isOutgoing ? '↗ You • ' : '↙ Lead • '}${new Date(m.timestamp).toLocaleString()}</div>
-                </div>
-              `).join('')
-            }
-          </div>
-        </div>
-
-        <div class="quick-actions">
-          <button class="action-btn" onclick="markAction('Sent message')">✉️ Sent Message</button>
-          <button class="action-btn" onclick="markAction('Called')">📞 Called</button>
-          <button class="action-btn" onclick="markAction('Booked appointment')">✅ Booked</button>
-          <button class="action-btn" onclick="markAction('Marked dead')">❌ Dead Lead</button>
-        </div>
-
-        <div class="notes-section">
-          <div class="notes-title">📝 Notes</div>
-          <div class="notes-list">
-            ${(lead.notes || []).map(n => `
-              <div class="note-item">
-                ${n.text}
-                <div class="note-time">${timeAgo(n.timestamp)}</div>
-              </div>
-            `).join('') || '<div style="color:#64748b;font-size:13px;">No notes yet</div>'}
-          </div>
-          <div class="note-input">
-            <input type="text" id="note-text" placeholder="Add a note...">
-            <button class="btn btn-primary" onclick="addNote()">Add</button>
-          </div>
-        </div>
-
-        <div style="margin-top:20px;">
-          <div class="notes-title">✅ Actions Taken</div>
-          ${(lead.actions || []).map(a => `
-            <div class="note-item" style="background:#064e3b;">
-              ✓ ${a.action}
-              <div class="note-time">${timeAgo(a.timestamp)}</div>
+      document.getElementById('conversation-panel').innerHTML = `
+        <div class="conversation-header">
+          <div class="contact-info">
+            <div class="contact-avatar">${(lead.name || '?')[0].toUpperCase()}</div>
+            <div class="contact-details">
+              <h2>${lead.name || 'Unknown'} ${lead.currentTag ? `<span class="contact-tag">${lead.currentTag}</span>` : ''}</h2>
+              <p>${lead.phone}</p>
             </div>
-          `).join('') || '<div style="color:#64748b;font-size:13px;">No actions yet</div>'}
+          </div>
+          <div class="header-actions-right">
+            <button class="btn btn-secondary" onclick="markAction('Called')">📞 Called</button>
+            <button class="btn btn-secondary" onclick="markAction('Marked dead')">❌ Dead</button>
+            <button class="btn btn-success" onclick="markAction('Booked appointment')">✅ Booked</button>
+          </div>
+        </div>
+        
+        <div class="ai-bar">
+          <span class="ai-bar-icon">🤖</span>
+          <span class="ai-bar-text"><strong>${badge.label}</strong> · ${lead.suggestedAction || 'Review this lead'}</span>
+        </div>
+
+        <div class="messages-container" id="messages-container">
+          ${messages.length === 0 ? '<div class="empty-conversation">No messages yet</div>' : 
+            messages.map(m => `
+              <div class="message-bubble ${m.isOutgoing ? 'outgoing' : 'incoming'}">
+                <div>${m.text}</div>
+                <div class="message-time">${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+              </div>
+            `).join('')
+          }
+        </div>
+
+        <div class="action-area">
+          ${lead.copyMessage ? `
+            <div class="copy-suggestion">
+              <div class="copy-suggestion-header">
+                <span class="copy-suggestion-title">💡 AI Suggested Response</span>
+                <span class="copy-suggestion-tag">Apply: ${lead.tagToApply || ''}</span>
+              </div>
+              <div class="copy-suggestion-text">${lead.copyMessage}</div>
+              <button class="copy-btn" onclick="copyMessage(this)">📋 Copy & Send in SalesGod</button>
+            </div>
+          ` : ''}
+          <div class="quick-actions">
+            <button class="action-btn" onclick="markAction('Sent message')">✉️ Sent Message</button>
+            <button class="action-btn" onclick="addQuickNote('Needs follow up')">📝 Follow up</button>
+            <button class="action-btn" onclick="addQuickNote('Left voicemail')">📝 Voicemail</button>
+            <button class="action-btn" onclick="addQuickNote('No answer')">📝 No answer</button>
+          </div>
         </div>
       `;
 
-      document.getElementById('modal').classList.add('active');
-    }
-
-    function closeModal() {
-      document.getElementById('modal').classList.remove('active');
-      selectedLead = null;
+      // Scroll to bottom of messages
+      setTimeout(() => {
+        const container = document.getElementById('messages-container');
+        if (container) container.scrollTop = container.scrollHeight;
+      }, 50);
     }
 
     async function copyMessage(btn) {
       if (!selectedLead?.copyMessage) return;
       await navigator.clipboard.writeText(selectedLead.copyMessage);
-      btn.textContent = '✓ COPIED!';
+      btn.textContent = '✓ Copied! Now paste in SalesGod';
       btn.classList.add('copied');
       setTimeout(() => {
-        btn.textContent = '📋 COPY MESSAGE';
+        btn.textContent = '📋 Copy & Send in SalesGod';
         btn.classList.remove('copied');
-      }, 2000);
+      }, 3000);
     }
 
     async function markAction(action) {
@@ -430,23 +343,18 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'handled' })
       });
-      closeModal();
       loadLeads();
     }
 
-    async function addNote() {
+    async function addQuickNote(note) {
       if (!selectedLead) return;
-      const text = document.getElementById('note-text').value;
-      if (!text) return;
       const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
       await fetch(`/api/leads/${encodeURIComponent(phone)}/note`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note: text })
+        body: JSON.stringify({ note })
       });
-      document.getElementById('note-text').value = '';
       loadLeads();
-      openLead(selectedLead.phone);
     }
 
     async function simulateLead() {
@@ -457,6 +365,8 @@
     async function clearLeads() {
       if (confirm('Clear all leads?')) {
         await fetch('/api/clear', { method: 'POST' });
+        selectedLead = null;
+        document.getElementById('conversation-panel').innerHTML = '<div class="no-lead-selected">← Select a lead to view conversation</div>';
         loadLeads();
       }
     }
