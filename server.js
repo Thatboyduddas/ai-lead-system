@@ -630,6 +630,57 @@ app.post('/api/clear', async (req, res) => {
   }
 });
 
+// ============ PENDING MESSAGES FOR AUTO-SEND ============
+app.get('/api/leads/:phone/pending', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+  
+  try {
+    const lead = await getLead(phone);
+    if (lead && lead.pendingMessage) {
+      res.json({ pending: true, message: lead.pendingMessage });
+    } else {
+      res.json({ pending: false });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/leads/:phone/pending', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+  const { message } = req.body;
+  
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      lead.pendingMessage = message;
+      await saveLead(phone, lead);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/leads/:phone/pending', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+  
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      delete lead.pendingMessage;
+      await saveLead(phone, lead);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 initDB().then(() => {
