@@ -38,15 +38,11 @@
       align-items: center; 
       gap: 10px;
     }
-    .logo-flag { font-size: 22px; }
-    .logo-maga { 
-      background: #fbbf24; 
-      color: #991b1b; 
-      padding: 2px 8px; 
-      border-radius: 4px; 
-      font-size: 10px; 
-      font-weight: 700;
-      letter-spacing: 0.5px;
+    .logo-dot { 
+      width: 10px; 
+      height: 10px; 
+      background: #22c55e; 
+      border-radius: 50%; 
     }
     .header-actions { display: flex; gap: 8px; }
     
@@ -461,17 +457,68 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #991b1b; }
+
+    /* Auto-send toggle */
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      padding: 6px 12px;
+      background: #27272a;
+      border-radius: 8px;
+      border: 1px solid #3f3f46;
+    }
+    .toggle-container input {
+      width: 36px;
+      height: 20px;
+      appearance: none;
+      background: #3f3f46;
+      border-radius: 10px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-container input::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      background: #71717a;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: all 0.2s;
+    }
+    .toggle-container input:checked {
+      background: #22c55e;
+    }
+    .toggle-container input:checked::before {
+      background: #fff;
+      left: 18px;
+    }
+    .toggle-label {
+      font-size: 12px;
+      color: #a1a1aa;
+      font-weight: 500;
+    }
+    .toggle-container:has(input:checked) .toggle-label {
+      color: #22c55e;
+    }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="header-content">
       <div class="logo">
-        <span class="logo-flag">🇺🇸</span>
+        <span class="logo-dot"></span>
         <span>Duddas CRM</span>
-        <span class="logo-maga">MAGA</span>
       </div>
       <div class="header-actions">
+        <label class="toggle-container">
+          <input type="checkbox" id="auto-send-toggle" onchange="toggleAutoSend()">
+          <span class="toggle-label">Auto-Send</span>
+        </label>
         <button class="btn btn-secondary" onclick="clearLeads()">Clear</button>
         <button class="btn btn-secondary" onclick="simulateLead()">Test Lead</button>
         <button class="btn btn-primary" onclick="loadLeads()">Refresh</button>
@@ -526,6 +573,31 @@
     let leads = [];
     let currentFilter = 'all';
     let selectedLead = null;
+    let autoSendEnabled = false;
+
+    function toggleAutoSend() {
+      autoSendEnabled = document.getElementById('auto-send-toggle').checked;
+      console.log('Auto-send:', autoSendEnabled ? 'ON' : 'OFF');
+      
+      // Save preference
+      localStorage.setItem('autoSendEnabled', autoSendEnabled);
+      
+      // Update server setting
+      fetch('/api/settings/auto-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: autoSendEnabled })
+      });
+    }
+
+    // Load saved preference on page load
+    window.addEventListener('load', () => {
+      const saved = localStorage.getItem('autoSendEnabled');
+      if (saved === 'true') {
+        document.getElementById('auto-send-toggle').checked = true;
+        autoSendEnabled = true;
+      }
+    });
 
     async function loadLeads() {
       try {
@@ -733,6 +805,11 @@
 
     async function sendMessage(btn) {
       if (!selectedLead?.copyMessage) return;
+      
+      if (!autoSendEnabled) {
+        alert('Auto-send is OFF. Turn it on in the header to send messages.');
+        return;
+      }
       
       btn.textContent = 'Queued...';
       btn.classList.add('sending');
