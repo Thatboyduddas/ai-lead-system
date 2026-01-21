@@ -3,355 +3,429 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Lead Intelligence</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>AI Lead Intelligence v2.0</title>
   <style>
-    .lead-card { transition: all 0.2s; }
-    .lead-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .pulse { animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-    .copy-btn:active { transform: scale(0.95); }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+    
+    .header { background: #1e293b; border-bottom: 1px solid #334155; padding: 16px 24px; position: sticky; top: 0; z-index: 50; }
+    .header-content { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 20px; font-weight: 700; color: #f8fafc; }
+    .logo span { color: #3b82f6; }
+    .header-actions { display: flex; gap: 10px; }
+    .btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary { background: #334155; color: #e2e8f0; }
+    .btn-secondary:hover { background: #475569; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-success:hover { background: #059669; }
+    
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+    
+    .stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: #1e293b; border-radius: 12px; padding: 20px; text-align: center; border: 1px solid #334155; }
+    .stat-icon { font-size: 28px; margin-bottom: 8px; }
+    .stat-value { font-size: 32px; font-weight: 700; }
+    .stat-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+    .stat-card.hot .stat-value { color: #ef4444; }
+    .stat-card.quote .stat-value { color: #10b981; }
+    .stat-card.scheduled .stat-value { color: #3b82f6; }
+    .stat-card.question .stat-value { color: #a855f7; }
+    .stat-card.dead .stat-value { color: #64748b; }
+    .stat-card.review .stat-value { color: #f59e0b; }
+    
+    .filters { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 24px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; border: 1px solid #334155; }
+    .filter-btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 500; background: #334155; color: #94a3b8; transition: all 0.2s; }
+    .filter-btn:hover { background: #475569; color: #e2e8f0; }
+    .filter-btn.active { background: #3b82f6; color: white; }
+    .search-input { margin-left: auto; padding: 8px 16px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 14px; width: 250px; }
+    .search-input::placeholder { color: #64748b; }
+    .search-input:focus { outline: none; border-color: #3b82f6; }
+    
+    .leads-grid { display: grid; gap: 16px; }
+    .lead-card { background: #1e293b; border-radius: 12px; border: 1px solid #334155; overflow: hidden; transition: all 0.2s; cursor: pointer; }
+    .lead-card:hover { border-color: #3b82f6; transform: translateY(-2px); }
+    .lead-card.handled { opacity: 0.5; }
+    
+    .lead-header { padding: 16px 20px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+    .lead-info { display: flex; align-items: center; gap: 12px; }
+    .lead-avatar { width: 40px; height: 40px; border-radius: 50%; background: #334155; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .lead-name { font-weight: 600; color: #f8fafc; }
+    .lead-phone { font-size: 13px; color: #64748b; }
+    .lead-tag { font-size: 11px; color: #94a3b8; background: #334155; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+    .lead-badges { display: flex; gap: 8px; }
+    .badge { padding: 4px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+    .badge-hot { background: #7f1d1d; color: #fca5a5; }
+    .badge-quote { background: #064e3b; color: #6ee7b7; }
+    .badge-scheduled { background: #1e3a8a; color: #93c5fd; }
+    .badge-question { background: #581c87; color: #d8b4fe; }
+    .badge-dead { background: #1f2937; color: #9ca3af; }
+    .badge-review { background: #78350f; color: #fcd34d; }
+    .badge-priority { background: #dc2626; color: white; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    
+    .lead-body { padding: 16px 20px; }
+    .lead-message { background: #0f172a; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; border-left: 3px solid #3b82f6; }
+    .lead-message-label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+    .lead-message-text { color: #e2e8f0; line-height: 1.5; }
+    .lead-action { display: flex; align-items: center; gap: 8px; color: #94a3b8; font-size: 13px; }
+    .lead-action strong { color: #f8fafc; }
+    
+    .lead-footer { padding: 12px 20px; background: #0f172a; display: flex; justify-content: space-between; align-items: center; }
+    .lead-time { font-size: 12px; color: #64748b; }
+    .lead-messages-count { font-size: 12px; color: #64748b; }
+    
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.active { display: flex; }
+    .modal { background: #1e293b; border-radius: 16px; max-width: 700px; width: 100%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
+    .modal-header { padding: 20px 24px; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
+    .modal-title { font-size: 18px; font-weight: 600; }
+    .modal-close { background: none; border: none; color: #64748b; font-size: 24px; cursor: pointer; }
+    .modal-close:hover { color: #f8fafc; }
+    .modal-body { padding: 24px; overflow-y: auto; flex: 1; }
+    
+    .conversation { margin-bottom: 24px; }
+    .conversation-title { font-size: 14px; font-weight: 600; color: #94a3b8; margin-bottom: 12px; }
+    .message-list { display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto; padding: 12px; background: #0f172a; border-radius: 8px; }
+    .message-item { padding: 10px 14px; border-radius: 8px; max-width: 85%; }
+    .message-item.incoming { background: #334155; align-self: flex-start; border-bottom-left-radius: 4px; }
+    .message-item.outgoing { background: #1d4ed8; align-self: flex-end; border-bottom-right-radius: 4px; }
+    .message-item .text { font-size: 14px; line-height: 1.4; }
+    .message-item .time { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+    
+    .ai-box { background: linear-gradient(135deg, #1e3a8a 0%, #581c87 100%); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+    .ai-box-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .ai-analysis { font-size: 14px; color: #e2e8f0; margin-bottom: 16px; }
+    .ai-suggestion { background: rgba(255,255,255,0.1); border-radius: 8px; padding: 12px 16px; }
+    .ai-suggestion-label { font-size: 11px; color: #c4b5fd; margin-bottom: 4px; }
+    .ai-suggestion-text { font-size: 14px; font-weight: 500; }
+    
+    .copy-box { background: #064e3b; border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+    .copy-box-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #6ee7b7; }
+    .copy-message { background: #0f172a; border-radius: 8px; padding: 14px; font-size: 14px; color: #e2e8f0; line-height: 1.5; margin-bottom: 12px; }
+    .copy-btn { width: 100%; padding: 14px; border-radius: 8px; background: #10b981; color: white; font-size: 16px; font-weight: 600; border: none; cursor: pointer; }
+    .copy-btn:hover { background: #059669; }
+    .copy-btn.copied { background: #64748b; }
+    .copy-hint { font-size: 12px; color: #6ee7b7; margin-top: 8px; text-align: center; }
+    
+    .quick-actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 24px; }
+    .action-btn { padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 14px; cursor: pointer; transition: all 0.2s; }
+    .action-btn:hover { background: #334155; }
+    
+    .notes-section { margin-top: 24px; }
+    .notes-title { font-size: 14px; font-weight: 600; color: #94a3b8; margin-bottom: 12px; }
+    .notes-list { margin-bottom: 12px; }
+    .note-item { background: #0f172a; padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
+    .note-time { font-size: 11px; color: #64748b; margin-top: 4px; }
+    .note-input { display: flex; gap: 10px; }
+    .note-input input { flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e2e8f0; font-size: 14px; }
+    .note-input input:focus { outline: none; border-color: #3b82f6; }
+    
+    .empty-state { text-align: center; padding: 60px 20px; color: #64748b; }
+    .empty-state-icon { font-size: 48px; margin-bottom: 16px; }
+    .empty-state-text { font-size: 16px; }
   </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-  <div id="app">
-    <!-- Header -->
-    <div class="bg-white border-b sticky top-0 z-50 shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div>
-          <h1 class="text-xl font-bold text-gray-900">🧠 AI Lead Intelligence</h1>
-          <p class="text-xs text-gray-500">Never miss a lead again</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <button onclick="simulateLead()" class="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">
-            + Test Lead
-          </button>
-          <button onclick="requestNotifications()" id="notifBtn" class="px-3 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200">
-            🔔 Enable Alerts
-          </button>
-          <button onclick="loadLeads()" class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
-            ↻ Refresh
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Stats -->
-    <div class="max-w-7xl mx-auto px-4 py-4">
-      <div class="grid grid-cols-6 gap-3" id="stats">
-        <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-          <div class="text-2xl">🔥</div>
-          <div class="text-xl font-bold text-red-700" id="stat-quote">0</div>
-          <div class="text-xs text-red-600">WANTS QUOTE</div>
-        </div>
-        <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-          <div class="text-2xl">💰</div>
-          <div class="text-xl font-bold text-green-700" id="stat-ready">0</div>
-          <div class="text-xs text-green-600">READY FOR QUOTE</div>
-        </div>
-        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-          <div class="text-2xl">📅</div>
-          <div class="text-xl font-bold text-blue-700" id="stat-scheduled">0</div>
-          <div class="text-xs text-blue-600">SCHEDULED</div>
-        </div>
-        <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
-          <div class="text-2xl">❓</div>
-          <div class="text-xl font-bold text-purple-700" id="stat-question">0</div>
-          <div class="text-xs text-purple-600">QUESTIONS</div>
-        </div>
-        <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-          <div class="text-2xl">❌</div>
-          <div class="text-xl font-bold text-gray-700" id="stat-dead">0</div>
-          <div class="text-xs text-gray-600">DEAD</div>
-        </div>
-        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
-          <div class="text-2xl">👀</div>
-          <div class="text-xl font-bold text-yellow-700" id="stat-review">0</div>
-          <div class="text-xs text-yellow-600">REVIEW</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="max-w-7xl mx-auto px-4 pb-3">
-      <div class="bg-white rounded-lg p-3 flex items-center gap-2 flex-wrap shadow-sm">
-        <button onclick="filterLeads('all')" class="filter-btn px-3 py-1.5 rounded text-sm font-medium bg-gray-900 text-white" data-filter="all">All</button>
-        <button onclick="filterLeads('wants_quote')" class="filter-btn px-3 py-1.5 rounded text-sm font-medium bg-red-50 text-red-700 hover:bg-red-100" data-filter="wants_quote">🔥 Wants Quote</button>
-        <button onclick="filterLeads('ready_for_quote')" class="filter-btn px-3 py-1.5 rounded text-sm font-medium bg-green-50 text-green-700 hover:bg-green-100" data-filter="ready_for_quote">💰 Ready for Quote</button>
-        <button onclick="filterLeads('scheduled')" class="filter-btn px-3 py-1.5 rounded text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100" data-filter="scheduled">📅 Scheduled</button>
-        <button onclick="filterLeads('question')" class="filter-btn px-3 py-1.5 rounded text-sm font-medium bg-purple-50 text-purple-700 hover:bg-purple-100" data-filter="question">❓ Questions</button>
-        <div class="flex-1"></div>
-        <input type="text" id="search" placeholder="Search phone or name..." class="px-3 py-1.5 border rounded-lg text-sm w-48" onkeyup="searchLeads(this.value)">
-      </div>
-    </div>
-
-    <!-- Leads List -->
-    <div class="max-w-7xl mx-auto px-4 pb-6">
-      <div class="bg-white rounded-lg shadow-sm" id="leadsList">
-        <div class="p-8 text-center text-gray-500">Loading leads...</div>
-      </div>
-    </div>
-
-    <!-- Lead Modal -->
-    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
-      <div class="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div id="modalContent"></div>
+<body>
+  <div class="header">
+    <div class="header-content">
+      <div class="logo">🧠 AI Lead <span>Intelligence</span> v2.0</div>
+      <div class="header-actions">
+        <button class="btn btn-secondary" onclick="clearLeads()">Clear All</button>
+        <button class="btn btn-primary" onclick="simulateLead()">+ Test Lead</button>
+        <button class="btn btn-success" onclick="loadLeads()">↻ Refresh</button>
       </div>
     </div>
   </div>
 
-  <script>
-    let allLeads = [];
-    let currentFilter = 'all';
-    let notificationsEnabled = false;
-    let lastLeadCount = 0;
+  <div class="container">
+    <div class="stats">
+      <div class="stat-card hot">
+        <div class="stat-icon">🔥</div>
+        <div class="stat-value" id="stat-hot">0</div>
+        <div class="stat-label">Wants Quote</div>
+      </div>
+      <div class="stat-card quote">
+        <div class="stat-icon">💰</div>
+        <div class="stat-value" id="stat-quote">0</div>
+        <div class="stat-label">Ready for Quote</div>
+      </div>
+      <div class="stat-card scheduled">
+        <div class="stat-icon">📅</div>
+        <div class="stat-value" id="stat-scheduled">0</div>
+        <div class="stat-label">Scheduled</div>
+      </div>
+      <div class="stat-card question">
+        <div class="stat-icon">❓</div>
+        <div class="stat-value" id="stat-question">0</div>
+        <div class="stat-label">Questions</div>
+      </div>
+      <div class="stat-card dead">
+        <div class="stat-icon">❌</div>
+        <div class="stat-value" id="stat-dead">0</div>
+        <div class="stat-label">Dead</div>
+      </div>
+      <div class="stat-card review">
+        <div class="stat-icon">👀</div>
+        <div class="stat-value" id="stat-review">0</div>
+        <div class="stat-label">Review</div>
+      </div>
+    </div>
 
-    // Load leads from server
+    <div class="filters">
+      <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">All</button>
+      <button class="filter-btn" data-filter="wants_quote" onclick="setFilter('wants_quote')">🔥 Wants Quote</button>
+      <button class="filter-btn" data-filter="ready_for_quote" onclick="setFilter('ready_for_quote')">💰 Ready</button>
+      <button class="filter-btn" data-filter="scheduled" onclick="setFilter('scheduled')">📅 Scheduled</button>
+      <button class="filter-btn" data-filter="question" onclick="setFilter('question')">❓ Questions</button>
+      <input type="text" class="search-input" placeholder="Search name or phone..." id="search" oninput="renderLeads()">
+    </div>
+
+    <div class="leads-grid" id="leads-grid">
+      <div class="empty-state">
+        <div class="empty-state-icon">📭</div>
+        <div class="empty-state-text">No leads yet. Click a contact in SalesGod to see them here.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-title">Lead Details</div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <script>
+    let leads = [];
+    let currentFilter = 'all';
+    let selectedLead = null;
+
     async function loadLeads() {
       try {
         const res = await fetch('/api/leads');
-        allLeads = await res.json();
-        
-        // Check for new leads and notify
-        if (notificationsEnabled && allLeads.length > lastLeadCount && lastLeadCount > 0) {
-          const newLead = allLeads[0];
-          showNotification(`New Lead: ${newLead.name}`, newLead.lastMessage);
-        }
-        lastLeadCount = allLeads.length;
-        
+        leads = await res.json();
         updateStats();
         renderLeads();
       } catch (err) {
-        console.error('Error loading leads:', err);
+        console.error('Error:', err);
       }
     }
 
-    // Update stats
     function updateStats() {
-      const stats = {
-        quote: allLeads.filter(l => l.category === 'wants_quote' && l.status !== 'handled').length,
-        ready: allLeads.filter(l => l.category === 'ready_for_quote' && l.status !== 'handled').length,
-        scheduled: allLeads.filter(l => l.category === 'scheduled').length,
-        question: allLeads.filter(l => l.category === 'question' && l.status !== 'handled').length,
-        dead: allLeads.filter(l => l.category === 'dead').length,
-        review: allLeads.filter(l => l.category === 'review' && l.status !== 'handled').length
-      };
-      
-      document.getElementById('stat-quote').textContent = stats.quote;
-      document.getElementById('stat-ready').textContent = stats.ready;
-      document.getElementById('stat-scheduled').textContent = stats.scheduled;
-      document.getElementById('stat-question').textContent = stats.question;
-      document.getElementById('stat-dead').textContent = stats.dead;
-      document.getElementById('stat-review').textContent = stats.review;
+      const active = leads.filter(l => l.status !== 'handled');
+      document.getElementById('stat-hot').textContent = active.filter(l => l.category === 'wants_quote').length;
+      document.getElementById('stat-quote').textContent = active.filter(l => l.category === 'ready_for_quote').length;
+      document.getElementById('stat-scheduled').textContent = active.filter(l => l.category === 'scheduled').length;
+      document.getElementById('stat-question').textContent = active.filter(l => l.category === 'question').length;
+      document.getElementById('stat-dead').textContent = leads.filter(l => l.category === 'dead').length;
+      document.getElementById('stat-review').textContent = active.filter(l => l.category === 'review' || !l.category).length;
     }
 
-    // Filter leads
-    function filterLeads(filter) {
+    function setFilter(filter) {
       currentFilter = filter;
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.remove('bg-gray-900', 'text-white');
-        btn.classList.add('bg-gray-50', 'text-gray-700');
-      });
-      document.querySelector(`[data-filter="${filter}"]`).classList.remove('bg-gray-50', 'text-gray-700');
-      document.querySelector(`[data-filter="${filter}"]`).classList.add('bg-gray-900', 'text-white');
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
       renderLeads();
     }
 
-    // Search leads
-    function searchLeads(query) {
-      renderLeads(query.toLowerCase());
-    }
-
-    // Render leads
-    function renderLeads(search = '') {
-      let filtered = allLeads;
+    function renderLeads() {
+      const search = document.getElementById('search').value.toLowerCase();
+      let filtered = leads;
       
       if (currentFilter !== 'all') {
         filtered = filtered.filter(l => l.category === currentFilter);
       }
-      
       if (search) {
         filtered = filtered.filter(l => 
-          l.phone?.toLowerCase().includes(search) || 
-          l.name?.toLowerCase().includes(search) ||
-          l.lastMessage?.toLowerCase().includes(search)
+          (l.name || '').toLowerCase().includes(search) || 
+          (l.phone || '').includes(search)
         );
       }
-      
+
       if (filtered.length === 0) {
-        document.getElementById('leadsList').innerHTML = '<div class="p-8 text-center text-gray-500">No leads found</div>';
+        document.getElementById('leads-grid').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <div class="empty-state-text">No leads match your filter.</div>
+          </div>
+        `;
         return;
       }
-      
-      const html = filtered.map(lead => {
-        const style = getCategoryStyle(lead.category);
+
+      document.getElementById('leads-grid').innerHTML = filtered.map(lead => {
+        const badge = getBadge(lead.category);
+        const lastMsg = lead.messages?.[lead.messages.length - 1];
         const isHandled = lead.status === 'handled';
         
         return `
-          <div class="lead-card p-4 border-b hover:bg-gray-50 cursor-pointer ${isHandled ? 'opacity-50' : ''}" onclick="openLead(${lead.id})">
-            <div class="flex items-start justify-between">
-              <div class="flex-1">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="text-xl">${style.icon}</span>
-                  <span class="font-semibold">${lead.name || 'Unknown'}</span>
-                  <span class="text-sm text-gray-500">${lead.phone || ''}</span>
-                  ${isHandled ? '<span class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">✓ Handled</span>' : ''}
-                  ${lead.priority === 'high' && !isHandled ? '<span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded pulse">HIGH PRIORITY</span>' : ''}
-                </div>
-                <p class="text-sm text-gray-700 mb-2">"${lead.lastMessage}"</p>
-                <div class="flex items-center gap-3 text-xs text-gray-500">
-                  <span>⏰ ${timeAgo(lead.timestamp)}</span>
-                  <span class="font-medium ${style.textColor}">${lead.suggestedAction}</span>
+          <div class="lead-card ${isHandled ? 'handled' : ''}" onclick="openLead('${lead.phone}')">
+            <div class="lead-header">
+              <div class="lead-info">
+                <div class="lead-avatar">${(lead.name || '?')[0].toUpperCase()}</div>
+                <div>
+                  <div class="lead-name">${lead.name || 'Unknown'}</div>
+                  <div class="lead-phone">${lead.phone || ''} ${lead.currentTag ? `<span class="lead-tag">${lead.currentTag}</span>` : ''}</div>
                 </div>
               </div>
-              <div class="flex flex-col gap-1 items-end">
-                <span class="px-2 py-1 rounded text-xs font-medium ${style.bgColor} ${style.textColor}">${style.label}</span>
+              <div class="lead-badges">
+                ${lead.priority === 'high' && !isHandled ? '<span class="badge badge-priority">URGENT</span>' : ''}
+                <span class="badge badge-${badge.class}">${badge.icon} ${badge.label}</span>
               </div>
+            </div>
+            <div class="lead-body">
+              <div class="lead-message">
+                <div class="lead-message-label">Latest message from lead:</div>
+                <div class="lead-message-text">"${lastMsg?.text || 'No messages'}"</div>
+              </div>
+              <div class="lead-action">
+                <strong>→</strong> ${lead.suggestedAction || 'Review this lead'}
+              </div>
+            </div>
+            <div class="lead-footer">
+              <div class="lead-time">${timeAgo(lead.lastMessageAt || lead.createdAt)}</div>
+              <div class="lead-messages-count">${lead.messages?.length || 0} message(s)</div>
             </div>
           </div>
         `;
       }).join('');
-      
-      document.getElementById('leadsList').innerHTML = html;
     }
 
-    // Get category style
-    function getCategoryStyle(category) {
-      const styles = {
-        wants_quote: { icon: '🔥', label: 'WANTS QUOTE', bgColor: 'bg-red-100', textColor: 'text-red-700' },
-        ready_for_quote: { icon: '💰', label: 'READY FOR QUOTE', bgColor: 'bg-green-100', textColor: 'text-green-700' },
-        scheduled: { icon: '📅', label: 'SCHEDULED', bgColor: 'bg-blue-100', textColor: 'text-blue-700' },
-        question: { icon: '❓', label: 'QUESTION', bgColor: 'bg-purple-100', textColor: 'text-purple-700' },
-        dead: { icon: '❌', label: 'DEAD', bgColor: 'bg-gray-100', textColor: 'text-gray-700' },
-        review: { icon: '👀', label: 'REVIEW', bgColor: 'bg-yellow-100', textColor: 'text-yellow-700' }
+    function getBadge(category) {
+      const badges = {
+        wants_quote: { icon: '🔥', label: 'WANTS QUOTE', class: 'hot' },
+        ready_for_quote: { icon: '💰', label: 'READY', class: 'quote' },
+        scheduled: { icon: '📅', label: 'SCHEDULED', class: 'scheduled' },
+        question: { icon: '❓', label: 'QUESTION', class: 'question' },
+        dead: { icon: '❌', label: 'DEAD', class: 'dead' },
+        review: { icon: '👀', label: 'REVIEW', class: 'review' }
       };
-      return styles[category] || styles.review;
+      return badges[category] || badges.review;
     }
 
-    // Time ago
-    function timeAgo(timestamp) {
-      const seconds = Math.floor((Date.now() - new Date(timestamp)) / 1000);
-      if (seconds < 60) return 'Just now';
-      if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
-      if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
-      return Math.floor(seconds / 86400) + 'd ago';
+    function timeAgo(ts) {
+      if (!ts) return '';
+      const s = Math.floor((Date.now() - new Date(ts)) / 1000);
+      if (s < 60) return 'Just now';
+      if (s < 3600) return Math.floor(s / 60) + 'm ago';
+      if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+      return Math.floor(s / 86400) + 'd ago';
     }
 
-    // Open lead modal
-    function openLead(id) {
-      const lead = allLeads.find(l => l.id === id);
+    function openLead(phone) {
+      const lead = leads.find(l => l.phone === phone);
       if (!lead) return;
+      selectedLead = lead;
+
+      document.getElementById('modal-title').textContent = `${lead.name || 'Unknown'} - ${lead.phone}`;
       
-      const style = getCategoryStyle(lead.category);
+      const badge = getBadge(lead.category);
+      const messages = lead.messages || [];
       
-      document.getElementById('modalContent').innerHTML = `
-        <div class="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
-          <div>
-            <div class="flex items-center gap-2">
-              <span class="text-2xl">${style.icon}</span>
-              <h2 class="text-lg font-bold">${lead.name || 'Unknown'}</h2>
-              <span class="px-2 py-1 rounded text-xs font-medium ${style.bgColor} ${style.textColor}">${style.label}</span>
-            </div>
-            <p class="text-sm text-gray-500">${lead.phone}</p>
+      document.getElementById('modal-body').innerHTML = `
+        <div class="ai-box">
+          <div class="ai-box-title">🤖 AI Analysis</div>
+          <div class="ai-analysis">
+            Category: <strong>${badge.label}</strong> | 
+            Priority: <strong>${lead.priority || 'low'}</strong> |
+            Tag: <strong>${lead.currentTag || 'None'}</strong>
           </div>
-          <button onclick="closeModal()" class="p-2 hover:bg-gray-100 rounded-full text-2xl">&times;</button>
+          <div class="ai-suggestion">
+            <div class="ai-suggestion-label">💡 Suggested Action</div>
+            <div class="ai-suggestion-text">${lead.suggestedAction || 'Review this lead manually'}</div>
+          </div>
         </div>
-        
-        <div class="p-4 space-y-4">
-          <!-- Their Message -->
-          <div class="bg-gray-100 rounded-lg p-4">
-            <p class="text-sm font-medium text-gray-600 mb-1">They said:</p>
-            <p class="text-lg">"${lead.lastMessage}"</p>
+
+        ${lead.copyMessage ? `
+          <div class="copy-box">
+            <div class="copy-box-title">📋 Message to Send</div>
+            <div class="copy-message">${lead.copyMessage}</div>
+            <button class="copy-btn" onclick="copyMessage(this)">📋 COPY MESSAGE</button>
+            <div class="copy-hint">After copying: Paste in SalesGod → Send → Apply "${lead.tagToApply || ''}" tag</div>
           </div>
-          
-          <!-- AI Analysis -->
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p class="font-semibold text-blue-900 mb-2">🤖 AI Analysis</p>
-            <p class="text-sm text-blue-800 mb-2">Intent: <strong>${lead.intent}</strong> (${Math.round(lead.confidence * 100)}% confidence)</p>
-            <p class="text-sm text-blue-800">Suggested: <strong>${lead.suggestedAction}</strong></p>
-            ${lead.tagToApply ? `<p class="text-sm text-blue-800 mt-1">Apply tag: <strong>${lead.tagToApply}</strong></p>` : ''}
+        ` : ''}
+
+        <div class="conversation">
+          <div class="conversation-title">📝 Conversation History (${messages.length} messages)</div>
+          <div class="message-list">
+            ${messages.length === 0 ? '<div style="color:#64748b;text-align:center;padding:20px;">No messages yet</div>' : 
+              messages.map(m => `
+                <div class="message-item incoming">
+                  <div class="text">${m.text}</div>
+                  <div class="time">${new Date(m.timestamp).toLocaleString()}</div>
+                </div>
+              `).join('')
+            }
           </div>
-          
-          <!-- Copy Message Button -->
-          ${lead.copyMessage ? `
-            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-              <p class="font-semibold text-green-900 mb-2">📋 Message to Send:</p>
-              <p class="text-sm text-green-800 mb-3 bg-white p-3 rounded border">${lead.copyMessage}</p>
-              <button onclick="copyMessage('${encodeURIComponent(lead.copyMessage)}', ${lead.id})" class="copy-btn w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 text-lg">
-                📋 COPY MESSAGE
-              </button>
-              <p class="text-xs text-green-600 mt-2 text-center">After copying: Paste in SalesGod → Send → Apply "${lead.tagToApply}" tag</p>
-            </div>
-          ` : ''}
-          
-          <!-- Quick Actions -->
-          <div class="bg-gray-50 rounded-lg p-4">
-            <p class="font-semibold mb-3">Quick Actions</p>
-            <div class="flex flex-wrap gap-2">
-              <button onclick="markHandled(${lead.id}, 'Sent message')" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">✓ Sent Message</button>
-              <button onclick="markHandled(${lead.id}, 'Called')" class="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700">📞 Called</button>
-              <button onclick="markHandled(${lead.id}, 'Booked')" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">✅ Booked</button>
-              <button onclick="markDead(${lead.id})" class="px-4 py-2 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700">❌ Dead Lead</button>
-            </div>
-          </div>
-          
-          <!-- Notes -->
-          <div>
-            <p class="font-semibold mb-2">Notes</p>
-            <div class="space-y-1 mb-2" id="notesList">
-              ${lead.notes?.map(n => `<div class="bg-yellow-50 p-2 rounded text-sm">${n.text} <span class="text-xs text-gray-400">${timeAgo(n.timestamp)}</span></div>`).join('') || '<p class="text-sm text-gray-400">No notes yet</p>'}
-            </div>
-            <div class="flex gap-2">
-              <input type="text" id="noteInput" placeholder="Add a note..." class="flex-1 border rounded-lg px-3 py-2 text-sm">
-              <button onclick="addNote(${lead.id})" class="px-4 py-2 bg-gray-800 text-white rounded-lg text-sm">Add</button>
-            </div>
-          </div>
-          
-          <!-- Actions Log -->
-          ${lead.actions?.length > 0 ? `
-            <div>
-              <p class="font-semibold mb-2">Actions Taken</p>
-              <div class="space-y-1">
-                ${lead.actions.map(a => `<div class="bg-green-50 p-2 rounded text-sm flex items-center gap-2"><span class="text-green-600">✓</span> ${a.action} <span class="text-xs text-gray-400 ml-auto">${timeAgo(a.timestamp)}</span></div>`).join('')}
+        </div>
+
+        <div class="quick-actions">
+          <button class="action-btn" onclick="markAction('Sent message')">✉️ Sent Message</button>
+          <button class="action-btn" onclick="markAction('Called')">📞 Called</button>
+          <button class="action-btn" onclick="markAction('Booked appointment')">✅ Booked</button>
+          <button class="action-btn" onclick="markAction('Marked dead')">❌ Dead Lead</button>
+        </div>
+
+        <div class="notes-section">
+          <div class="notes-title">📝 Notes</div>
+          <div class="notes-list">
+            ${(lead.notes || []).map(n => `
+              <div class="note-item">
+                ${n.text}
+                <div class="note-time">${timeAgo(n.timestamp)}</div>
               </div>
+            `).join('') || '<div style="color:#64748b;font-size:13px;">No notes yet</div>'}
+          </div>
+          <div class="note-input">
+            <input type="text" id="note-text" placeholder="Add a note...">
+            <button class="btn btn-primary" onclick="addNote()">Add</button>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;">
+          <div class="notes-title">✅ Actions Taken</div>
+          ${(lead.actions || []).map(a => `
+            <div class="note-item" style="background:#064e3b;">
+              ✓ ${a.action}
+              <div class="note-time">${timeAgo(a.timestamp)}</div>
             </div>
-          ` : ''}
+          `).join('') || '<div style="color:#64748b;font-size:13px;">No actions yet</div>'}
         </div>
       `;
-      
-      document.getElementById('modal').classList.remove('hidden');
+
+      document.getElementById('modal').classList.add('active');
     }
 
-    // Close modal
     function closeModal() {
-      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('modal').classList.remove('active');
+      selectedLead = null;
     }
 
-    // Copy message
-    async function copyMessage(encodedMsg, leadId) {
-      const msg = decodeURIComponent(encodedMsg);
-      await navigator.clipboard.writeText(msg);
-      
-      const btn = event.target;
+    async function copyMessage(btn) {
+      if (!selectedLead?.copyMessage) return;
+      await navigator.clipboard.writeText(selectedLead.copyMessage);
       btn.textContent = '✓ COPIED!';
-      btn.classList.remove('bg-green-600');
-      btn.classList.add('bg-gray-600');
-      
+      btn.classList.add('copied');
       setTimeout(() => {
         btn.textContent = '📋 COPY MESSAGE';
-        btn.classList.remove('bg-gray-600');
-        btn.classList.add('bg-green-600');
+        btn.classList.remove('copied');
       }, 2000);
     }
 
-    // Mark as handled
-    async function markHandled(id, action) {
-      await fetch(`/api/leads/${id}/action`, {
+    async function markAction(action) {
+      if (!selectedLead) return;
+      const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+      await fetch(`/api/leads/${encodeURIComponent(phone)}/action`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action })
       });
-      await fetch(`/api/leads/${id}/status`, {
+      await fetch(`/api/leads/${encodeURIComponent(phone)}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'handled' })
@@ -360,68 +434,35 @@
       loadLeads();
     }
 
-    // Mark as dead
-    async function markDead(id) {
-      await fetch(`/api/leads/${id}/status`, {
+    async function addNote() {
+      if (!selectedLead) return;
+      const text = document.getElementById('note-text').value;
+      if (!text) return;
+      const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+      await fetch(`/api/leads/${encodeURIComponent(phone)}/note`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'handled', category: 'dead' })
+        body: JSON.stringify({ note: text })
       });
-      closeModal();
+      document.getElementById('note-text').value = '';
       loadLeads();
+      openLead(selectedLead.phone);
     }
 
-    // Add note
-    async function addNote(id) {
-      const note = document.getElementById('noteInput').value;
-      if (!note) return;
-      
-      await fetch(`/api/leads/${id}/note`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note })
-      });
-      
-      document.getElementById('noteInput').value = '';
-      loadLeads();
-      openLead(id);
-    }
-
-    // Simulate lead for testing
     async function simulateLead() {
       await fetch('/api/simulate', { method: 'POST' });
       loadLeads();
     }
 
-    // Notifications
-    function requestNotifications() {
-      if ('Notification' in window) {
-        Notification.requestPermission().then(p => {
-          if (p === 'granted') {
-            notificationsEnabled = true;
-            document.getElementById('notifBtn').textContent = '🔔 Alerts ON';
-            document.getElementById('notifBtn').classList.add('bg-green-100', 'text-green-700');
-            showNotification('Notifications Enabled', 'You will get alerts for new leads!');
-          }
-        });
+    async function clearLeads() {
+      if (confirm('Clear all leads?')) {
+        await fetch('/api/clear', { method: 'POST' });
+        loadLeads();
       }
     }
 
-    function showNotification(title, body) {
-      if (notificationsEnabled) {
-        new Notification(title, { body, icon: '🔥' });
-      }
-    }
-
-    // Click outside modal to close
-    document.getElementById('modal').addEventListener('click', (e) => {
-      if (e.target.id === 'modal') closeModal();
-    });
-
-    // Auto-refresh every 10 seconds
-    setInterval(loadLeads, 10000);
-
-    // Initial load
+    // Auto refresh every 5 seconds
+    setInterval(loadLeads, 5000);
     loadLeads();
   </script>
 </body>
