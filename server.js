@@ -199,6 +199,38 @@ function detectIntent(message) {
     if (text.includes(word)) return { intent: 'not_interested', confidence: 0.85 };
   }
   
+  // SINGLE AGE - if they just text a number 18-64, that's their age for a quote
+  const singleAgeMatch = text.match(/^(\d{1,2})$/);
+  if (singleAgeMatch) {
+    const age = parseInt(singleAgeMatch[1]);
+    if (age >= 18 && age <= 64) {
+      return { 
+        intent: 'gave_age_gender', 
+        confidence: 0.95, 
+        data: { adults: 1, kids: 0, youngestAge: age, ages: [age], hasMedicareAge: false }
+      };
+    }
+    if (age >= 65) {
+      return { intent: 'medicare', confidence: 0.95, data: { ages: [age], hasMedicareAge: true } };
+    }
+  }
+  
+  // SINGLE AGE WITH GENDER - "42 m", "42 male", "42 f", "35 female"
+  const ageGenderMatch = text.match(/^(\d{1,2})\s*(m|f|male|female|man|woman)$/i);
+  if (ageGenderMatch) {
+    const age = parseInt(ageGenderMatch[1]);
+    if (age >= 18 && age <= 64) {
+      return { 
+        intent: 'gave_age_gender', 
+        confidence: 0.95, 
+        data: { adults: 1, kids: 0, youngestAge: age, ages: [age], hasMedicareAge: false }
+      };
+    }
+    if (age >= 65) {
+      return { intent: 'medicare', confidence: 0.95, data: { ages: [age], hasMedicareAge: true } };
+    }
+  }
+
   // MEDICARE detection
   const medicareWords = ['medicare', 'over 65', 'im 65', "i'm 65", 'turning 65'];
   for (const word of medicareWords) {
