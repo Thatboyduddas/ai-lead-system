@@ -322,70 +322,18 @@ function detectIntent(message) {
 
 // ============ AI RESPONSE GENERATION ============
 async function generateAIResponse(leadMessage, intent, context = {}) {
-  const systemPrompt = `You are a friendly health insurance agent named Jack. You help people get quotes for private health insurance plans.
-
-RULES:
-- Keep responses SHORT (1-2 sentences max)
-- Be conversational and friendly, not salesy
-- Match the lead's energy/tone
-- Your GOAL is always to get their age so you can provide a quote
-- Never be pushy or aggressive
-- Use casual language, contractions
-- Sound human, not like a bot
-
-IMPORTANT: If someone says "no thanks" or "not right now" but ALSO mentions "maybe later" or "when I have time" - they are NOT dead! They're soft follow-ups. Ask WHEN to follow up.
-
-CONTEXT:
-- You sell private health insurance for ages 18-64
-- For ages 65+, you refer to Faith for Medicare
-- To give a quote you need: age of everyone being insured
-- Plans range $239-$1800/month depending on age and family size
-
-WHAT YOU KNOW ABOUT THIS LEAD:
-- Their message: "${leadMessage}"
-- Detected intent: ${intent}
-- Current tag: ${context.currentTag || 'new'}`;
-
-  let userPrompt = '';
-  
+  // Keep it simple - just push for age, give quote, follow up
   switch (intent) {
     case 'greeting':
-      userPrompt = `The lead just said "${leadMessage}" - this is a greeting/acknowledgment. They're responding to your outreach about health insurance. Write a friendly reply that acknowledges their greeting and naturally asks for their age to provide a quote. Don't be robotic - match their casual energy.`;
-      break;
     case 'soft_positive':
-      userPrompt = `The lead said "${leadMessage}" - they seem somewhat interested but non-committal. Write a low-pressure response that gently moves toward getting their age for a quote.`;
-      break;
-    case 'has_question':
-      userPrompt = `The lead asked: "${leadMessage}". Answer their question briefly and professionally, then guide toward getting their age for a quote if appropriate.`;
-      break;
     case 'wants_quote':
-      userPrompt = `The lead said "${leadMessage}" - they want a quote! Ask for the age (and gender if needed) of everyone who will be on the plan. Keep it simple.`;
-      break;
+    case 'has_question':
+      return "Hey! I just need your age for the quote.";
     case 'call_later':
-      userPrompt = `The lead said "${leadMessage}" - they mentioned a specific time to follow up (like a month, "April", "next week", etc). Write a SHORT confident response that:
-1. Confirms you'll reach out at that time (e.g. "Sounds good, I'll reach out in April!")
-2. Keep it brief and friendly - no questions, just confirm the follow-up
-Example good responses: "Sounds good, I'll follow up in April!", "Perfect, I'll reach back out then!", "Got it, talk to you in April!"`;
-      break;
+      const month = context.followUpDate || 'then';
+      return `Sounds good, I'll follow up ${month}!`;
     default:
-      userPrompt = `The lead said "${leadMessage}". Write an appropriate response that moves the conversation toward getting their age for a quote, or addresses whatever they said.`;
-  }
-
-  try {
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 150,
-      messages: [
-        { role: 'user', content: userPrompt }
-      ],
-      system: systemPrompt
-    });
-    
-    return response.content[0].text.trim();
-  } catch (err) {
-    console.error('AI generation error:', err);
-    // Fallback to template if AI fails
-    return null;
+      return "I just need your age to get you a quote.";
   }
 }
 
@@ -700,8 +648,26 @@ app.post('/api/clear', async (req, res) => {
   }
 });
 
+// ============ AUTO-SEND SETTINGS ============
+let autoSendEnabled = false;
+
+app.get('/api/settings/auto-send', (req, res) => {
+  res.json({ enabled: autoSendEnabled });
+});
+
+app.post('/api/settings/auto-send', (req, res) => {
+  autoSendEnabled = req.body.enabled === true;
+  console.log('Auto-send:', autoSendEnabled ? 'ON' : 'OFF');
+  res.json({ enabled: autoSendEnabled });
+});
+
 // ============ PENDING MESSAGES FOR AUTO-SEND ============
 app.get('/api/leads/:phone/pending', async (req, res) => {
+  // Only return pending if auto-send is enabled
+  if (!autoSendEnabled) {
+    return res.json({ pending: false, reason: 'auto-send disabled' });
+  }
+  
   const phone = req.params.phone.replace(/[^0-9+]/g, '');
   
   try {
