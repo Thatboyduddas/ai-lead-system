@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "AI Lead Intelligence - SalesGod",
-  "version": "1.0",
-  "description": "Sends SalesGod messages to AI Dashboard",
+  "name": "Duddas CRM - MAGA Edition 🇺🇸",
+  "version": "3.0",
+  "description": "Making Insurance Great Again! Sends SalesGod messages to Duddas CRM Dashboard",
   "permissions": ["storage"],
   "host_permissions": ["https://www.salesgodcrm.net/*", "https://ai-lead-system-production-df0a.up.railway.app/*"],
   "content_scripts": [
@@ -11,5 +11,9 @@
       "js": ["content.js"],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
 }
