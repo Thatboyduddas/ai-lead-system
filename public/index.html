@@ -105,8 +105,8 @@
     .search-input::placeholder { color: #71717a; }
     .search-input:focus { 
       outline: none; 
-      border-color: #3b82f6; 
-      box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+      border-color: #fbbf24; 
+      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
     }
     
     /* Stats */
@@ -215,15 +215,15 @@
       text-transform: uppercase;
       letter-spacing: 0.3px;
     }
-    .mini-badge.hot { background: rgba(239,68,68,0.15); color: #f87171; }
-    .mini-badge.quote { background: rgba(234,179,8,0.15); color: #facc15; }
-    .mini-badge.scheduled { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .mini-badge.hot { background: rgba(153, 27, 27, 0.3); color: #fca5a5; }
+    .mini-badge.quote { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+    .mini-badge.scheduled { background: rgba(30, 58, 95, 0.5); color: #93c5fd; }
     .mini-badge.question { background: rgba(168,85,247,0.15); color: #c084fc; }
     .mini-badge.dead { background: rgba(113,113,122,0.15); color: #a1a1aa; }
     .mini-badge.review { background: rgba(249,115,22,0.15); color: #fb923c; }
     .mini-badge.soft { background: rgba(34,197,94,0.15); color: #4ade80; }
     .mini-badge.medicare { background: rgba(249,115,22,0.15); color: #fb923c; }
-    .mini-badge.urgent { background: #ef4444; color: #fff; }
+    .mini-badge.urgent { background: #991b1b; color: #fff; }
     .mini-badge.referral { background: rgba(139,92,246,0.15); color: #a78bfa; }
     
     /* Conversation Panel */
@@ -354,7 +354,7 @@
     }
     .copy-suggestion-title { 
       font-size: 12px; 
-      color: #9ca3af; 
+      color: #fbbf24; 
       font-weight: 600; 
       display: flex; 
       align-items: center; 
@@ -402,7 +402,7 @@
       flex: 1; 
       padding: 12px; 
       border-radius: 8px; 
-      background: #3b82f6; 
+      background: linear-gradient(90deg, #991b1b, #b91c1c); 
       color: #fff; 
       font-size: 13px; 
       font-weight: 600; 
@@ -411,7 +411,7 @@
       transition: all 0.15s ease;
       font-family: inherit;
     }
-    .send-btn:hover { background: #2563eb; }
+    .send-btn:hover { background: linear-gradient(90deg, #b91c1c, #dc2626); }
     .send-btn.sending { background: #f59e0b; }
     .send-btn.sent { background: #22c55e; }
     
@@ -429,8 +429,8 @@
       font-family: inherit;
     }
     .action-btn:hover { 
-      background: #27272a; 
-      border-color: #52525b;
+      background: rgba(153, 27, 27, 0.2); 
+      border-color: #991b1b;
       color: #fff;
     }
     
@@ -459,16 +459,17 @@
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+    ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #991b1b; }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="header-content">
       <div class="logo">
-        <span class="logo-dot"></span>
+        <span class="logo-flag">🇺🇸</span>
         <span>Duddas CRM</span>
+        <span class="logo-maga">MAGA</span>
       </div>
       <div class="header-actions">
         <button class="btn btn-secondary" onclick="clearLeads()">Clear</button>
@@ -514,9 +515,9 @@
 
     <div class="conversation-panel" id="conversation-panel">
       <div class="no-lead-selected">
-        <div class="no-lead-icon">💬</div>
+        <div class="no-lead-icon">🦅</div>
         <div class="no-lead-text">Select a lead to get started</div>
-        <div class="no-lead-sub">Your conversations will appear here</div>
+        <div class="no-lead-sub">Making Insurance Great Again</div>
       </div>
     </div>
   </div>
@@ -626,6 +627,7 @@
         const lastMsg = lead.messages?.[lead.messages.length - 1];
         const isActive = selectedLead?.phone === lead.phone;
         const isHandled = lead.status === 'handled';
+        const hasFollowUp = lead.followUpDate && lead.category === 'scheduled';
         
         return `
           <div class="lead-item ${isActive ? 'active' : ''} ${isHandled ? 'handled' : ''}" onclick="openLead('${lead.phone}')">
@@ -636,6 +638,7 @@
             <div class="lead-item-preview">${lastMsg?.text?.substring(0, 50) || 'No messages'}${lastMsg?.text?.length > 50 ? '...' : ''}</div>
             <div class="lead-item-badges">
               ${lead.priority === 'high' && !isHandled ? '<span class="mini-badge urgent">!</span>' : ''}
+              ${hasFollowUp ? `<span class="mini-badge scheduled">📅 ${lead.followUpDate}</span>` : ''}
               ${lead.hasReferral ? '<span class="mini-badge referral">REF</span>' : ''}
               ${lead.isMedicare ? '<span class="mini-badge medicare">65+</span>' : ''}
               <span class="mini-badge ${badge.class}">${badge.label}</span>
@@ -660,7 +663,7 @@
             <div class="contact-avatar">${(lead.name || '?')[0].toUpperCase()}</div>
             <div class="contact-details">
               <h2>${lead.name || 'Unknown'} ${lead.currentTag ? `<span class="contact-tag">${lead.currentTag}</span>` : ''}</h2>
-              <p>${lead.phone}</p>
+              <p>${lead.phone}${lead.followUpDate ? ` · 📅 Follow up: ${lead.followUpDate}` : ''}</p>
             </div>
           </div>
           <div class="header-actions-right">
@@ -804,9 +807,9 @@
         selectedLead = null;
         document.getElementById('conversation-panel').innerHTML = `
           <div class="no-lead-selected">
-            <div class="no-lead-icon">💬</div>
+            <div class="no-lead-icon">🦅</div>
             <div class="no-lead-text">Select a lead to get started</div>
-            <div class="no-lead-sub">Your conversations will appear here</div>
+            <div class="no-lead-sub">Making Insurance Great Again</div>
           </div>
         `;
         loadLeads();
