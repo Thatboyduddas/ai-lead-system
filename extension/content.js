@@ -1,10 +1,10 @@
-// Duddas CRM v3.1 - Chrome Extension
-// Making Insurance Great Again! 🇺🇸
-// Now with AUTO-SEND from Dashboard!
+// Duddas CRM v3.2 - Chrome Extension
+// Background updates + Auto-send fix
 
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
-let lastSentData = "";
+let lastSentHash = "";
 let currentPhone = null;
+let isWatching = false;
 
 function extractConversationData() {
   let contactName = "";
@@ -24,7 +24,6 @@ function extractConversationData() {
     }
   }
   
-  // Store current phone for auto-send feature
   if (phone) {
     currentPhone = phone.replace(/[^0-9+]/g, '');
   }
@@ -69,12 +68,12 @@ function extractConversationData() {
   });
   
   return { 
-    contactName: contactName, 
-    phone: phone, 
-    currentTag: currentTag, 
+    contactName, 
+    phone, 
+    currentTag, 
     messages: allMessages,
     lastMessage: allMessages.length > 0 ? allMessages[allMessages.length - 1] : null,
-    hasReferral: hasReferral
+    hasReferral
   };
 }
 
@@ -84,9 +83,9 @@ function sendToDashboard(data) {
   const lastMsg = data.lastMessage;
   if (!lastMsg) return;
   
-  const dataHash = data.phone + "|" + data.messages.length + "|" + lastMsg.text.substring(0, 50);
-  if (dataHash === lastSentData) return;
-  lastSentData = dataHash;
+  const dataHash = data.phone + "|" + data.messages.length + "|" + lastMsg.text.substring(0, 100) + "|" + lastMsg.isOutgoing;
+  if (dataHash === lastSentHash) return;
+  lastSentHash = dataHash;
   
   const payload = {
     phone: data.phone,
@@ -98,186 +97,159 @@ function sendToDashboard(data) {
     hasReferral: data.hasReferral
   };
   
-  console.log("🇺🇸 Duddas CRM: Sending", payload);
+  console.log("📤 Duddas: Sending to dashboard", payload);
   
   fetch(DASHBOARD_URL + "/webhook/salesgod", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload)
   }).then(r => r.json()).then(result => {
-    console.log("🇺🇸 Duddas CRM: Sent!", result);
-    showNotification(data.contactName, lastMsg.text, lastMsg.isOutgoing);
+    console.log("✅ Duddas: Sent!", result);
+    showNotification("Synced: " + data.contactName, lastMsg.isOutgoing ? "outgoing" : "incoming");
   }).catch(err => {
-    console.error("🇺🇸 Duddas CRM: Error", err);
+    console.error("❌ Duddas: Error", err);
   });
 }
 
-function showNotification(name, message, isOutgoing) {
+function showNotification(message, type) {
   const existing = document.getElementById("duddas-notif");
   if (existing) existing.remove();
   
   const notif = document.createElement("div");
   notif.id = "duddas-notif";
-  const bgColor = isOutgoing ? "linear-gradient(90deg, #002868 0%, #1e40af 100%)" : "linear-gradient(90deg, #bf0a30 0%, #dc2626 100%)";
-  const direction = isOutgoing ? "↗️ You" : "↙️ Lead";
-  const emoji = isOutgoing ? "📤" : "📥";
   
   notif.style.cssText = `
     position: fixed;
-    top: 20px;
+    bottom: 20px;
     right: 20px;
-    background: ${bgColor};
+    background: ${type === 'outgoing' ? '#3b82f6' : '#22c55e'};
     color: white;
-    padding: 15px 20px;
-    border-radius: 12px;
+    padding: 10px 16px;
+    border-radius: 8px;
     z-index: 99999;
     font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    max-width: 350px;
-    border: 2px solid #ffd700;
+    font-size: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   `;
   
-  notif.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-      <span style="font-size:18px;">🇺🇸</span>
-      <strong style="font-size:14px;">Duddas CRM</strong>
-      <span style="font-size:11px;opacity:0.8;">MAGA Edition</span>
-    </div>
-    <div style="font-size:12px;opacity:0.9;">${emoji} ${direction}: ${message.substring(0, 50)}${message.length > 50 ? '...' : ''}</div>
-  `;
-  
+  notif.textContent = message;
   document.body.appendChild(notif);
-  setTimeout(() => { notif.remove(); }, 3000);
+  setTimeout(() => notif.remove(), 2000);
 }
 
-// ============ AUTO-SEND FEATURE ============
-
-// Find the message input textarea
 function findMessageInput() {
-  // Try multiple selectors for the textarea
-  const selectors = [
-    'textarea[placeholder*="Type your message"]',
-    'textarea[placeholder*="message"]',
-    '.message-input textarea',
-    'textarea'
-  ];
-  
-  for (const selector of selectors) {
-    const el = document.querySelector(selector);
-    if (el && el.offsetParent !== null) { // visible
-      return el;
+  const textareas = document.querySelectorAll('textarea');
+  for (const ta of textareas) {
+    const placeholder = ta.getAttribute('placeholder') || '';
+    if (placeholder.toLowerCase().includes('message') || placeholder.toLowerCase().includes('type')) {
+      return ta;
     }
   }
-  return null;
+  for (const ta of textareas) {
+    const rect = ta.getBoundingClientRect();
+    if (rect.top > window.innerHeight / 2) {
+      return ta;
+    }
+  }
+  return textareas[textareas.length - 1];
 }
 
-// Find the send button
 function findSendButton() {
-  // Look for send button - it's likely an SVG arrow or button
-  const selectors = [
-    'button[type="submit"]',
-    '.send-button',
-    'button svg[class*="send"]',
-    // The arrow icon in bottom right
-    'button:has(svg)',
-  ];
+  const allSvgs = document.querySelectorAll('svg');
   
-  // Find all buttons and look for one with arrow/send icon
-  const buttons = document.querySelectorAll('button');
+  for (const svg of allSvgs) {
+    const rect = svg.getBoundingClientRect();
+    if (rect.top > window.innerHeight - 150) {
+      const paths = svg.querySelectorAll('path');
+      for (const path of paths) {
+        const d = path.getAttribute('d') || '';
+        if (d.includes('l') || d.includes('L') || d.includes('polygon') || d.length > 10) {
+          let clickable = svg.closest('button') || svg.closest('[role="button"]') || svg.parentElement;
+          if (clickable) {
+            return clickable;
+          }
+        }
+      }
+    }
+  }
+  
+  const buttons = document.querySelectorAll('button, [role="button"], .btn, [class*="send"]');
   for (const btn of buttons) {
-    // Check if it's near the textarea (in the message area)
     const rect = btn.getBoundingClientRect();
-    if (rect.bottom > window.innerHeight - 200) { // Bottom of screen
-      // Check for arrow SVG or send-like appearance
-      const svg = btn.querySelector('svg');
-      if (svg) {
+    if (rect.top > window.innerHeight - 150 && rect.left > window.innerWidth - 300) {
+      if (btn.querySelector('svg') || btn.innerHTML.includes('send') || btn.innerHTML.includes('Send')) {
         return btn;
       }
     }
   }
   
-  // Fallback: look for the specific send button structure
-  const allButtons = document.querySelectorAll('button, div[role="button"]');
-  for (const btn of allButtons) {
-    if (btn.innerHTML.includes('path') && btn.closest('form, .message-area, [class*="input"]')) {
-      return btn;
-    }
-  }
-  
   return null;
 }
 
-// Type message and send
 async function typeAndSend(message) {
   const textarea = findMessageInput();
   if (!textarea) {
-    console.error("🇺🇸 Duddas: Could not find message input");
-    showSendNotification(false, "Could not find message input");
+    showSendError("Could not find message input");
     return false;
   }
   
-  // Focus and set value
   textarea.focus();
   textarea.value = message;
   
-  // Dispatch input event to trigger any listeners
+  const inputEvent = new Event('input', { bubbles: true, cancelable: true });
+  textarea.dispatchEvent(inputEvent);
+  
+  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+  nativeInputValueSetter.call(textarea, message);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
-  textarea.dispatchEvent(new Event('change', { bubbles: true }));
   
-  // Small delay for UI to update
-  await new Promise(r => setTimeout(r, 300));
+  await new Promise(r => setTimeout(r, 500));
   
-  // Find and click send button
   const sendBtn = findSendButton();
   if (!sendBtn) {
-    console.error("🇺🇸 Duddas: Could not find send button");
-    showSendNotification(false, "Could not find send button");
+    showSendError("Could not find send button");
     return false;
   }
   
   sendBtn.click();
+  sendBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
   
-  console.log("🇺🇸 Duddas: Message sent!", message.substring(0, 50));
-  showSendNotification(true, message);
-  
+  showSendSuccess();
   return true;
 }
 
-function showSendNotification(success, message) {
+function showSendError(message) {
   const existing = document.getElementById("duddas-send-notif");
   if (existing) existing.remove();
   
   const notif = document.createElement("div");
   notif.id = "duddas-send-notif";
-  
   notif.style.cssText = `
-    position: fixed;
-    top: 80px;
-    right: 20px;
-    background: ${success ? 'linear-gradient(90deg, #10b981 0%, #059669 100%)' : 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)'};
-    color: white;
-    padding: 15px 20px;
-    border-radius: 12px;
-    z-index: 99999;
-    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    max-width: 350px;
-    border: 2px solid #ffd700;
+    position: fixed; top: 20px; right: 20px; background: #ef4444; color: white;
+    padding: 12px 18px; border-radius: 8px; z-index: 99999;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px;
   `;
-  
-  notif.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-      <span style="font-size:18px;">${success ? '✅' : '❌'}</span>
-      <strong style="font-size:14px;">Duddas Auto-Send</strong>
-    </div>
-    <div style="font-size:12px;opacity:0.9;">${success ? 'Message sent!' : message}</div>
-  `;
-  
+  notif.innerHTML = `<strong>❌ Duddas Auto-Send</strong><br>${message}`;
   document.body.appendChild(notif);
-  setTimeout(() => { notif.remove(); }, 4000);
+  setTimeout(() => notif.remove(), 5000);
 }
 
-// Check for pending sends from dashboard
+function showSendSuccess() {
+  const existing = document.getElementById("duddas-send-notif");
+  if (existing) existing.remove();
+  
+  const notif = document.createElement("div");
+  notif.id = "duddas-send-notif";
+  notif.style.cssText = `
+    position: fixed; top: 20px; right: 20px; background: #22c55e; color: white;
+    padding: 12px 18px; border-radius: 8px; z-index: 99999;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 13px;
+  `;
+  notif.innerHTML = `<strong>✅ Duddas Auto-Send</strong><br>Message sent!`;
+  document.body.appendChild(notif);
+  setTimeout(() => notif.remove(), 3000);
+}
+
 async function checkPendingSends() {
   if (!currentPhone) return;
   
@@ -286,75 +258,64 @@ async function checkPendingSends() {
     const data = await res.json();
     
     if (data.pending && data.message) {
-      console.log("🇺🇸 Duddas: Found pending message to send");
-      
-      // Send the message
       const success = await typeAndSend(data.message);
-      
       if (success) {
-        // Mark as sent
-        await fetch(DASHBOARD_URL + `/api/leads/${encodeURIComponent(currentPhone)}/pending`, {
-          method: 'DELETE'
-        });
+        await fetch(DASHBOARD_URL + `/api/leads/${encodeURIComponent(currentPhone)}/pending`, { method: 'DELETE' });
       }
     }
-  } catch (err) {
-    // Silent fail - pending check is background task
+  } catch (err) {}
+}
+
+function checkAndSync() {
+  const data = extractConversationData();
+  if (data.messages.length > 0 && data.phone) {
+    sendToDashboard(data);
   }
 }
 
-// Navigate to a specific phone number conversation
-function navigateToConversation(phone) {
-  // Click on the conversation in the sidebar if visible
-  const cleanPhone = phone.replace(/[^0-9]/g, '');
-  const conversations = document.querySelectorAll('[class*="conversation"], [class*="contact"], .list-item, tr');
-  
-  for (const conv of conversations) {
-    const text = conv.innerText || '';
-    if (text.includes(cleanPhone) || text.includes(phone)) {
-      conv.click();
-      return true;
+function startMutationObserver() {
+  const observer = new MutationObserver((mutations) => {
+    let hasNewContent = false;
+    for (const mutation of mutations) {
+      if (mutation.addedNodes.length > 0) {
+        for (const node of mutation.addedNodes) {
+          if (node.nodeType === 1) {
+            if (node.classList?.contains('text-bubble') || node.querySelector?.('.text-bubble')) {
+              hasNewContent = true;
+              break;
+            }
+          }
+        }
+      }
+      if (hasNewContent) break;
     }
-  }
-  return false;
+    if (hasNewContent) {
+      setTimeout(checkAndSync, 300);
+    }
+  });
+  
+  observer.observe(document.body, { childList: true, subtree: true });
 }
 
 function startWatching() {
-  console.log("🇺🇸 Duddas CRM v3.1 Running - Making Insurance Great Again!");
-  console.log("🚀 Auto-Send Feature ENABLED");
+  if (isWatching) return;
+  isWatching = true;
   
-  // Check every 2 seconds for new messages
-  setInterval(() => {
-    const data = extractConversationData();
-    if (data.messages.length > 0) { 
-      sendToDashboard(data); 
-    }
-  }, 2000);
+  console.log("🚀 Duddas CRM v3.2 Running");
   
-  // Check for pending sends every 3 seconds
-  setInterval(checkPendingSends, 3000);
+  setTimeout(checkAndSync, 1000);
+  startMutationObserver();
+  setInterval(checkAndSync, 3000);
+  setInterval(checkPendingSends, 2000);
   
-  // Also check on click (when switching conversations)
-  document.addEventListener("click", () => {
-    setTimeout(() => {
-      const data = extractConversationData();
-      if (data.messages.length > 0) { 
-        sendToDashboard(data); 
-      }
-    }, 500);
-  });
-  
-  // Check on keypress (when sending messages)
+  document.addEventListener("click", () => setTimeout(checkAndSync, 500));
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      setTimeout(() => {
-        const data = extractConversationData();
-        if (data.messages.length > 0) { 
-          sendToDashboard(data); 
-        }
-      }, 1000);
-    }
+    if (e.key === "Enter" && !e.shiftKey) setTimeout(checkAndSync, 1000);
   });
 }
 
-startWatching();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startWatching);
+} else {
+  startWatching();
+}
