@@ -3,145 +3,477 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Duddas CRM v3.0 - MAGA Edition 🇺🇸</title>
+  <title>Duddas CRM</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #0a1628 0%, #1a0a0a 100%); color: #e2e8f0; min-height: 100vh; }
+    body { 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+      background: #0a0f1a; 
+      color: #e4e4e7; 
+      min-height: 100vh;
+    }
     
-    .header { background: linear-gradient(90deg, #bf0a30 0%, #002868 100%); border-bottom: 3px solid #ffd700; padding: 12px 24px; position: sticky; top: 0; z-index: 50; }
-    .header-content { max-width: 1800px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
-    .logo { font-size: 22px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
-    .logo-flag { font-size: 28px; }
-    .logo-maga { background: #ffd700; color: #bf0a30; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 800; margin-left: 8px; }
+    /* Header */
+    .header { 
+      background: linear-gradient(90deg, #991b1b 0%, #1e3a5f 100%); 
+      border-bottom: 2px solid #fbbf24; 
+      padding: 12px 24px; 
+      position: sticky; 
+      top: 0; 
+      z-index: 50;
+    }
+    .header-content { 
+      max-width: 1800px; 
+      margin: 0 auto; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+    }
+    .logo { 
+      font-size: 18px; 
+      font-weight: 700; 
+      color: #fff; 
+      display: flex; 
+      align-items: center; 
+      gap: 10px;
+    }
+    .logo-flag { font-size: 22px; }
+    .logo-maga { 
+      background: #fbbf24; 
+      color: #991b1b; 
+      padding: 2px 8px; 
+      border-radius: 4px; 
+      font-size: 10px; 
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
     .header-actions { display: flex; gap: 8px; }
-    .btn { padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
-    .btn-primary { background: #ffd700; color: #000; }
-    .btn-primary:hover { background: #ffed4a; transform: scale(1.05); }
-    .btn-secondary { background: rgba(255,255,255,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.3); }
-    .btn-secondary:hover { background: rgba(255,255,255,0.3); }
-    .btn-success { background: #10b981; color: white; }
-    .btn-success:hover { background: #059669; }
-    .btn-danger { background: #bf0a30; color: white; }
-    .btn-danger:hover { background: #8b0000; }
     
-    .main-layout { display: flex; height: calc(100vh - 57px); }
+    /* Buttons */
+    .btn { 
+      padding: 8px 14px; 
+      border-radius: 8px; 
+      border: none; 
+      cursor: pointer; 
+      font-size: 13px; 
+      font-weight: 500; 
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .btn-primary { 
+      background: #fbbf24; 
+      color: #000; 
+    }
+    .btn-primary:hover { background: #f59e0b; }
+    .btn-secondary { 
+      background: #27272a; 
+      color: #a1a1aa; 
+      border: 1px solid #3f3f46;
+    }
+    .btn-secondary:hover { 
+      background: #3f3f46; 
+      color: #fff; 
+    }
+    .btn-success { background: #22c55e; color: #fff; }
+    .btn-success:hover { background: #16a34a; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
     
-    /* Left sidebar */
-    .leads-sidebar { width: 340px; background: linear-gradient(180deg, #0f1a2e 0%, #1a0f0f 100%); border-right: 1px solid #bf0a30; display: flex; flex-direction: column; }
-    .sidebar-header { padding: 12px; border-bottom: 1px solid #333; }
-    .search-input { width: 100%; padding: 10px 14px; border-radius: 8px; border: 2px solid #002868; background: #0a1225; color: #fff; font-size: 14px; }
-    .search-input::placeholder { color: #64748b; }
-    .search-input:focus { outline: none; border-color: #ffd700; box-shadow: 0 0 10px rgba(255,215,0,0.3); }
+    /* Layout */
+    .main-layout { display: flex; height: calc(100vh - 53px); }
     
-    .stats-bar { display: flex; gap: 12px; padding: 10px 12px; background: rgba(0,40,104,0.3); border-bottom: 1px solid #333; flex-wrap: wrap; }
-    .stat-item { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #94a3b8; }
-    .stat-item .count { font-weight: 700; font-size: 14px; }
-    .stat-item.hot .count { color: #ff6b6b; }
-    .stat-item.quote .count { color: #ffd700; }
-    .stat-item.scheduled .count { color: #4dabf7; }
-    .stat-item.question .count { color: #da77f2; }
-    .stat-item.soft .count { color: #69db7c; }
-    .stat-item.medicare .count { color: #ff922b; }
+    /* Sidebar */
+    .leads-sidebar { 
+      width: 320px; 
+      background: #111827; 
+      border-right: 1px solid #1e3a5f; 
+      display: flex; 
+      flex-direction: column;
+    }
+    .sidebar-header { padding: 16px; }
+    .search-input { 
+      width: 100%; 
+      padding: 10px 12px; 
+      border-radius: 8px; 
+      border: 1px solid #3f3f46; 
+      background: #27272a; 
+      color: #fff; 
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .search-input::placeholder { color: #71717a; }
+    .search-input:focus { 
+      outline: none; 
+      border-color: #3b82f6; 
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
     
-    .filter-tabs { display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid #333; overflow-x: auto; flex-wrap: wrap; }
-    .filter-tab { padding: 5px 10px; border-radius: 4px; border: none; cursor: pointer; font-size: 11px; font-weight: 600; background: transparent; color: #64748b; white-space: nowrap; transition: all 0.2s; }
-    .filter-tab:hover { color: #fff; background: rgba(255,255,255,0.1); }
-    .filter-tab.active { background: #bf0a30; color: #fff; }
+    /* Stats */
+    .stats-bar { 
+      display: flex; 
+      gap: 16px; 
+      padding: 12px 16px; 
+      border-bottom: 1px solid #27272a;
+    }
+    .stat-item { 
+      display: flex; 
+      align-items: center; 
+      gap: 6px; 
+      font-size: 12px; 
+      color: #71717a;
+    }
+    .stat-item .count { 
+      font-weight: 600; 
+      font-size: 14px;
+      color: #a1a1aa;
+    }
     
-    .tag-filters { display: flex; gap: 4px; padding: 6px 8px; border-bottom: 1px solid #333; overflow-x: auto; }
-    .tag-filter { padding: 3px 8px; border-radius: 4px; border: 1px solid #333; cursor: pointer; font-size: 10px; font-weight: 500; background: transparent; color: #64748b; white-space: nowrap; }
-    .tag-filter:hover { border-color: #ffd700; color: #ffd700; }
-    .tag-filter.active { background: #002868; color: #fff; border-color: #002868; }
+    /* Filters */
+    .filter-tabs { 
+      display: flex; 
+      gap: 4px; 
+      padding: 12px 16px; 
+      border-bottom: 1px solid #27272a; 
+      overflow-x: auto;
+      flex-wrap: wrap;
+    }
+    .filter-tab { 
+      padding: 6px 12px; 
+      border-radius: 6px; 
+      border: none; 
+      cursor: pointer; 
+      font-size: 12px; 
+      font-weight: 500; 
+      background: transparent; 
+      color: #71717a; 
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .filter-tab:hover { color: #fff; background: #1e3a5f; }
+    .filter-tab.active { background: #991b1b; color: #fff; }
     
+    .tag-filters { 
+      display: flex; 
+      gap: 6px; 
+      padding: 8px 16px; 
+      border-bottom: 1px solid #27272a; 
+      overflow-x: auto;
+    }
+    .tag-filter { 
+      padding: 4px 10px; 
+      border-radius: 6px; 
+      border: 1px solid #3f3f46; 
+      cursor: pointer; 
+      font-size: 11px; 
+      font-weight: 500; 
+      background: transparent; 
+      color: #71717a;
+      font-family: inherit;
+    }
+    .tag-filter:hover { border-color: #fbbf24; color: #fbbf24; }
+    .tag-filter.active { background: #1e3a5f; color: #fff; border-color: #1e3a5f; }
+    
+    /* Lead List */
     .leads-list { flex: 1; overflow-y: auto; }
-    .lead-item { padding: 12px; border-bottom: 1px solid #222; cursor: pointer; transition: all 0.2s; }
-    .lead-item:hover { background: rgba(191,10,48,0.2); }
-    .lead-item.active { background: linear-gradient(90deg, #bf0a30 0%, #002868 100%); border-left: 4px solid #ffd700; }
-    .lead-item.handled { opacity: 0.4; }
-    .lead-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .lead-item { 
+      padding: 14px 16px; 
+      border-bottom: 1px solid #27272a; 
+      cursor: pointer; 
+      transition: all 0.15s ease;
+    }
+    .lead-item:hover { background: rgba(153, 27, 27, 0.15); }
+    .lead-item.active { 
+      background: linear-gradient(90deg, rgba(153, 27, 27, 0.3) 0%, rgba(30, 58, 95, 0.3) 100%); 
+      border-left: 3px solid #fbbf24;
+    }
+    .lead-item.handled { opacity: 0.5; }
+    .lead-item-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 4px;
+    }
     .lead-item-name { font-weight: 600; font-size: 14px; color: #fff; }
-    .lead-item-time { font-size: 11px; color: #64748b; }
-    .lead-item.active .lead-item-time { color: #ffd700; }
-    .lead-item-preview { font-size: 12px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px; }
-    .lead-item.active .lead-item-preview { color: #e2e8f0; }
-    .lead-item-badges { display: flex; gap: 4px; flex-wrap: wrap; }
-    .mini-badge { padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; }
-    .mini-badge.hot { background: #bf0a30; color: #fff; }
-    .mini-badge.quote { background: #ffd700; color: #000; }
-    .mini-badge.scheduled { background: #002868; color: #fff; }
-    .mini-badge.question { background: #7c3aed; color: #fff; }
-    .mini-badge.dead { background: #333; color: #888; }
-    .mini-badge.review { background: #f59e0b; color: #000; }
-    .mini-badge.soft { background: #10b981; color: #fff; }
-    .mini-badge.medicare { background: #ff922b; color: #fff; }
-    .mini-badge.urgent { background: #ff0000; color: #fff; animation: pulse 1s infinite; }
-    .mini-badge.referral { background: #8b5cf6; color: #fff; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .lead-item-time { font-size: 11px; color: #52525b; }
+    .lead-item-preview { 
+      font-size: 13px; 
+      color: #71717a; 
+      white-space: nowrap; 
+      overflow: hidden; 
+      text-overflow: ellipsis; 
+      margin-bottom: 8px;
+    }
+    .lead-item-badges { display: flex; gap: 6px; flex-wrap: wrap; }
     
-    /* Right side - conversation */
-    .conversation-panel { flex: 1; display: flex; flex-direction: column; background: #0a1225; }
+    /* Badges */
+    .mini-badge { 
+      padding: 3px 8px; 
+      border-radius: 4px; 
+      font-size: 10px; 
+      font-weight: 600; 
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .mini-badge.hot { background: rgba(239,68,68,0.15); color: #f87171; }
+    .mini-badge.quote { background: rgba(234,179,8,0.15); color: #facc15; }
+    .mini-badge.scheduled { background: rgba(59,130,246,0.15); color: #60a5fa; }
+    .mini-badge.question { background: rgba(168,85,247,0.15); color: #c084fc; }
+    .mini-badge.dead { background: rgba(113,113,122,0.15); color: #a1a1aa; }
+    .mini-badge.review { background: rgba(249,115,22,0.15); color: #fb923c; }
+    .mini-badge.soft { background: rgba(34,197,94,0.15); color: #4ade80; }
+    .mini-badge.medicare { background: rgba(249,115,22,0.15); color: #fb923c; }
+    .mini-badge.urgent { background: #ef4444; color: #fff; }
+    .mini-badge.referral { background: rgba(139,92,246,0.15); color: #a78bfa; }
     
-    .conversation-header { padding: 14px 20px; background: linear-gradient(90deg, #002868 0%, #0f1a2e 100%); border-bottom: 2px solid #bf0a30; display: flex; justify-content: space-between; align-items: center; }
-    .contact-info { display: flex; align-items: center; gap: 12px; }
-    .contact-avatar { width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, #bf0a30, #002868); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; border: 2px solid #ffd700; }
-    .contact-details h2 { font-size: 16px; font-weight: 600; color: #fff; }
-    .contact-details p { font-size: 12px; color: #94a3b8; }
-    .contact-tag { font-size: 10px; color: #ffd700; background: rgba(255,215,0,0.2); padding: 2px 8px; border-radius: 4px; margin-left: 8px; border: 1px solid #ffd700; }
+    /* Conversation Panel */
+    .conversation-panel { 
+      flex: 1; 
+      display: flex; 
+      flex-direction: column; 
+      background: #0f0f0f;
+    }
+    
+    .conversation-header { 
+      padding: 16px 24px; 
+      background: linear-gradient(90deg, #1e3a5f 0%, #111827 100%); 
+      border-bottom: 1px solid #fbbf24; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+    }
+    .contact-info { display: flex; align-items: center; gap: 14px; }
+    .contact-avatar { 
+      width: 42px; 
+      height: 42px; 
+      border-radius: 10px; 
+      background: linear-gradient(135deg, #991b1b, #1e3a5f); 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      font-size: 16px; 
+      font-weight: 600;
+      color: #fff;
+      border: 2px solid #fbbf24;
+    }
+    .contact-details h2 { font-size: 15px; font-weight: 600; color: #fff; }
+    .contact-details p { font-size: 12px; color: #71717a; margin-top: 2px; }
+    .contact-tag { 
+      font-size: 10px; 
+      color: #fbbf24; 
+      background: rgba(251, 191, 36, 0.15); 
+      padding: 3px 8px; 
+      border-radius: 4px; 
+      margin-left: 8px;
+      font-weight: 500;
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
     .header-actions-right { display: flex; gap: 8px; }
     
-    .ai-bar { padding: 12px 20px; background: linear-gradient(90deg, #1a365d 0%, #5b21b6 100%); display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #ffd700; }
-    .ai-bar-icon { font-size: 20px; }
-    .ai-bar-text { flex: 1; font-size: 13px; }
-    .ai-bar-text strong { color: #ffd700; }
+    /* AI Bar */
+    .ai-bar { 
+      padding: 12px 24px; 
+      background: linear-gradient(90deg, rgba(30, 58, 95, 0.5) 0%, rgba(153, 27, 27, 0.3) 100%); 
+      display: flex; 
+      align-items: center; 
+      gap: 12px; 
+      border-bottom: 1px solid #1e3a5f;
+    }
+    .ai-bar-icon { 
+      width: 28px; 
+      height: 28px; 
+      background: linear-gradient(135deg, #991b1b, #1e3a5f);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .ai-bar-text { flex: 1; font-size: 13px; color: #a1a1aa; }
+    .ai-bar-text strong { color: #fbbf24; }
     
-    .messages-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="50" x="50" font-size="50" fill="%23ffffff08" text-anchor="middle">🇺🇸</text></svg>') repeat; background-size: 100px; }
+    /* Messages */
+    .messages-container { 
+      flex: 1; 
+      overflow-y: auto; 
+      padding: 24px; 
+      display: flex; 
+      flex-direction: column; 
+      gap: 12px;
+    }
     
-    .message-bubble { max-width: 75%; padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.5; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-    .message-bubble.incoming { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); align-self: flex-start; border-bottom-left-radius: 4px; border: 1px solid #475569; }
-    .message-bubble.outgoing { background: linear-gradient(135deg, #002868 0%, #1e40af 100%); align-self: flex-end; border-bottom-right-radius: 4px; border: 1px solid #3b82f6; }
-    .message-time { font-size: 10px; color: #64748b; margin-top: 6px; }
-    .message-bubble.outgoing .message-time { color: #93c5fd; }
+    .message-bubble { 
+      max-width: 70%; 
+      padding: 12px 16px; 
+      border-radius: 16px; 
+      font-size: 14px; 
+      line-height: 1.5;
+    }
+    .message-bubble.incoming { 
+      background: #27272a; 
+      align-self: flex-start; 
+      border-bottom-left-radius: 4px;
+    }
+    .message-bubble.outgoing { 
+      background: linear-gradient(135deg, #1e3a5f, #1e40af); 
+      align-self: flex-end; 
+      border-bottom-right-radius: 4px;
+      color: #fff;
+    }
+    .message-time { font-size: 10px; color: #52525b; margin-top: 6px; }
+    .message-bubble.outgoing .message-time { color: rgba(255,255,255,0.6); }
     
-    .empty-conversation { flex: 1; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 16px; }
+    .empty-conversation { 
+      flex: 1; 
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      color: #52525b; 
+      font-size: 14px;
+    }
     
-    /* Bottom action area */
-    .action-area { padding: 16px 20px; background: linear-gradient(180deg, #0f1a2e 0%, #1a0f0f 100%); border-top: 2px solid #bf0a30; }
+    /* Action Area */
+    .action-area { 
+      padding: 20px 24px; 
+      background: #111827; 
+      border-top: 1px solid #991b1b;
+    }
     
-    .copy-suggestion { background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); border-radius: 12px; padding: 14px 18px; margin-bottom: 14px; border: 1px solid #10b981; }
-    .copy-suggestion-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .copy-suggestion-title { font-size: 13px; color: #6ee7b7; font-weight: 700; display: flex; align-items: center; gap: 6px; }
-    .copy-suggestion-tag { font-size: 10px; color: #6ee7b7; opacity: 0.8; background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 4px; }
-    .copy-suggestion-text { font-size: 13px; color: #e2e8f0; line-height: 1.5; margin-bottom: 12px; max-height: 80px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
-    .copy-btn { width: 100%; padding: 12px; border-radius: 8px; background: linear-gradient(90deg, #10b981 0%, #059669 100%); color: white; font-size: 15px; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; text-transform: uppercase; letter-spacing: 1px; }
-    .copy-btn:hover { transform: scale(1.02); box-shadow: 0 4px 15px rgba(16,185,129,0.4); }
-    .copy-btn.copied { background: linear-gradient(90deg, #ffd700 0%, #f59e0b 100%); color: #000; }
+    .copy-suggestion { 
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); 
+      border-radius: 12px; 
+      padding: 16px; 
+      margin-bottom: 16px; 
+      border: 1px solid #1e3a5f;
+    }
+    .copy-suggestion-header { 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center; 
+      margin-bottom: 10px;
+    }
+    .copy-suggestion-title { 
+      font-size: 12px; 
+      color: #9ca3af; 
+      font-weight: 600; 
+      display: flex; 
+      align-items: center; 
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .copy-suggestion-tag { 
+      font-size: 10px; 
+      color: #6b7280; 
+      background: #374151; 
+      padding: 3px 8px; 
+      border-radius: 4px;
+    }
+    .copy-suggestion-text { 
+      font-size: 14px; 
+      color: #e5e7eb; 
+      line-height: 1.6; 
+      margin-bottom: 14px; 
+      background: #111827; 
+      padding: 12px; 
+      border-radius: 8px;
+      max-height: 80px;
+      overflow-y: auto;
+    }
+    
+    .send-buttons { display: flex; gap: 10px; }
+    .copy-btn { 
+      flex: 1; 
+      padding: 12px; 
+      border-radius: 8px; 
+      background: #374151; 
+      color: #fff; 
+      font-size: 13px; 
+      font-weight: 600; 
+      border: none; 
+      cursor: pointer; 
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .copy-btn:hover { background: #4b5563; }
+    .copy-btn.copied { background: #22c55e; }
+    
+    .send-btn { 
+      flex: 1; 
+      padding: 12px; 
+      border-radius: 8px; 
+      background: #3b82f6; 
+      color: #fff; 
+      font-size: 13px; 
+      font-weight: 600; 
+      border: none; 
+      cursor: pointer; 
+      transition: all 0.15s ease;
+      font-family: inherit;
+    }
+    .send-btn:hover { background: #2563eb; }
+    .send-btn.sending { background: #f59e0b; }
+    .send-btn.sent { background: #22c55e; }
     
     .quick-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    .action-btn { padding: 10px 14px; border-radius: 8px; border: 1px solid #333; background: rgba(255,255,255,0.05); color: #e2e8f0; font-size: 12px; cursor: pointer; transition: all 0.2s; font-weight: 500; }
-    .action-btn:hover { background: rgba(191,10,48,0.3); border-color: #bf0a30; }
+    .action-btn { 
+      padding: 10px 14px; 
+      border-radius: 8px; 
+      border: 1px solid #3f3f46; 
+      background: transparent; 
+      color: #a1a1aa; 
+      font-size: 12px; 
+      cursor: pointer; 
+      transition: all 0.15s ease; 
+      font-weight: 500;
+      font-family: inherit;
+    }
+    .action-btn:hover { 
+      background: #27272a; 
+      border-color: #52525b;
+      color: #fff;
+    }
     
-    .no-lead-selected { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #64748b; text-align: center; padding: 40px; }
-    .no-lead-icon { font-size: 80px; margin-bottom: 20px; }
-    .no-lead-text { font-size: 20px; font-weight: 600; color: #fff; margin-bottom: 10px; }
-    .no-lead-sub { font-size: 14px; color: #64748b; }
-    
-    .trump-quote { margin-top: 30px; padding: 20px; background: rgba(255,215,0,0.1); border-radius: 12px; border: 1px solid #ffd700; max-width: 400px; }
-    .trump-quote-text { font-style: italic; color: #ffd700; font-size: 14px; line-height: 1.6; }
-    .trump-quote-author { margin-top: 10px; color: #bf0a30; font-weight: 700; font-size: 12px; }
+    /* Empty State */
+    .no-lead-selected { 
+      display: flex; 
+      flex-direction: column; 
+      align-items: center; 
+      justify-content: center; 
+      height: 100%; 
+      color: #52525b; 
+      text-align: center; 
+      padding: 40px;
+    }
+    .no-lead-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+    .no-lead-text { font-size: 16px; font-weight: 500; color: #a1a1aa; margin-bottom: 6px; }
+    .no-lead-sub { font-size: 13px; color: #52525b; }
+
+    .auto-send-note { 
+      font-size: 11px; 
+      color: #6b7280; 
+      text-align: center; 
+      margin-top: 10px;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #52525b; }
   </style>
 </head>
 <body>
   <div class="header">
     <div class="header-content">
       <div class="logo">
-        <span class="logo-flag">🇺🇸</span>
-        <span>DUDDAS CRM</span>
-        <span class="logo-maga">MAGA</span>
+        <span class="logo-dot"></span>
+        <span>Duddas CRM</span>
       </div>
       <div class="header-actions">
-        <button class="btn btn-secondary" onclick="clearLeads()">🗑️ Clear</button>
-        <button class="btn btn-primary" onclick="simulateLead()">⚡ Test Lead</button>
-        <button class="btn btn-success" onclick="loadLeads()">🔄 Refresh</button>
+        <button class="btn btn-secondary" onclick="clearLeads()">Clear</button>
+        <button class="btn btn-secondary" onclick="simulateLead()">Test Lead</button>
+        <button class="btn btn-primary" onclick="loadLeads()">Refresh</button>
       </div>
     </div>
   </div>
@@ -149,27 +481,26 @@
   <div class="main-layout">
     <div class="leads-sidebar">
       <div class="sidebar-header">
-        <input type="text" class="search-input" placeholder="🔍 Search leads..." id="search" oninput="renderLeads()">
+        <input type="text" class="search-input" placeholder="Search leads..." id="search" oninput="renderLeads()">
       </div>
       <div class="stats-bar">
-        <div class="stat-item hot">🔥 <span class="count" id="stat-hot">0</span></div>
-        <div class="stat-item quote">💰 <span class="count" id="stat-quote">0</span></div>
-        <div class="stat-item soft">🤔 <span class="count" id="stat-soft">0</span></div>
-        <div class="stat-item scheduled">📅 <span class="count" id="stat-scheduled">0</span></div>
-        <div class="stat-item question">❓ <span class="count" id="stat-question">0</span></div>
-        <div class="stat-item medicare">👴 <span class="count" id="stat-medicare">0</span></div>
+        <div class="stat-item">🔥 <span class="count" id="stat-hot">0</span></div>
+        <div class="stat-item">💰 <span class="count" id="stat-quote">0</span></div>
+        <div class="stat-item">🤔 <span class="count" id="stat-soft">0</span></div>
+        <div class="stat-item">📅 <span class="count" id="stat-scheduled">0</span></div>
+        <div class="stat-item">❓ <span class="count" id="stat-question">0</span></div>
+        <div class="stat-item">👴 <span class="count" id="stat-medicare">0</span></div>
       </div>
       <div class="filter-tabs">
         <button class="filter-tab active" data-filter="all" onclick="setFilter('all')">All</button>
-        <button class="filter-tab" data-filter="wants_quote" onclick="setFilter('wants_quote')">🔥 Hot</button>
-        <button class="filter-tab" data-filter="ready_for_quote" onclick="setFilter('ready_for_quote')">💰 Quote</button>
-        <button class="filter-tab" data-filter="soft_positive" onclick="setFilter('soft_positive')">🤔 Soft</button>
-        <button class="filter-tab" data-filter="scheduled" onclick="setFilter('scheduled')">📅 Later</button>
-        <button class="filter-tab" data-filter="question" onclick="setFilter('question')">❓ Q's</button>
-        <button class="filter-tab" data-filter="medicare" onclick="setFilter('medicare')">👴 Medicare</button>
-        <button class="filter-tab" data-filter="review" onclick="setFilter('review')">👀 Review</button>
-        <button class="filter-tab" data-filter="referral" onclick="setFilter('referral')">🤝 Referrals</button>
-        <button class="filter-tab" data-filter="handled" onclick="setFilter('handled')">✅ Done</button>
+        <button class="filter-tab" data-filter="wants_quote" onclick="setFilter('wants_quote')">Hot</button>
+        <button class="filter-tab" data-filter="ready_for_quote" onclick="setFilter('ready_for_quote')">Quote</button>
+        <button class="filter-tab" data-filter="soft_positive" onclick="setFilter('soft_positive')">Soft</button>
+        <button class="filter-tab" data-filter="scheduled" onclick="setFilter('scheduled')">Later</button>
+        <button class="filter-tab" data-filter="question" onclick="setFilter('question')">Questions</button>
+        <button class="filter-tab" data-filter="medicare" onclick="setFilter('medicare')">Medicare</button>
+        <button class="filter-tab" data-filter="review" onclick="setFilter('review')">Review</button>
+        <button class="filter-tab" data-filter="handled" onclick="setFilter('handled')">Done</button>
       </div>
       <div class="tag-filters">
         <button class="tag-filter" data-filter="tag:Age and gender" onclick="setFilter('tag:Age and gender')">Age/Gender</button>
@@ -183,13 +514,9 @@
 
     <div class="conversation-panel" id="conversation-panel">
       <div class="no-lead-selected">
-        <div class="no-lead-icon">🦅</div>
-        <div class="no-lead-text">Select a Lead to Get Started</div>
-        <div class="no-lead-sub">Making Insurance Great Again, One Lead at a Time</div>
-        <div class="trump-quote">
-          <div class="trump-quote-text">"In the end, you're measured not by how much you undertake but by what you finally accomplish."</div>
-          <div class="trump-quote-author">— President Donald J. Trump</div>
-        </div>
+        <div class="no-lead-icon">💬</div>
+        <div class="no-lead-text">Select a lead to get started</div>
+        <div class="no-lead-sub">Your conversations will appear here</div>
       </div>
     </div>
   </div>
@@ -203,6 +530,14 @@
       try {
         const res = await fetch('/api/leads');
         leads = await res.json();
+        
+        // Sort by most recent message first
+        leads.sort((a, b) => {
+          const timeA = new Date(a.lastMessageAt || a.createdAt || 0).getTime();
+          const timeB = new Date(b.lastMessageAt || b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        
         updateStats();
         renderLeads();
         if (selectedLead) {
@@ -236,7 +571,7 @@
       const badges = {
         wants_quote: { icon: '🔥', label: 'HOT', class: 'hot' },
         ready_for_quote: { icon: '💰', label: 'QUOTE', class: 'quote' },
-        soft_positive: { icon: '🤔', label: 'SOFT+', class: 'soft' },
+        soft_positive: { icon: '🤔', label: 'SOFT', class: 'soft' },
         scheduled: { icon: '📅', label: 'LATER', class: 'scheduled' },
         question: { icon: '❓', label: 'Q', class: 'question' },
         medicare: { icon: '👴', label: 'MEDICARE', class: 'medicare' },
@@ -257,7 +592,7 @@
 
     function renderLeads() {
       const search = document.getElementById('search').value.toLowerCase();
-      let filtered = leads;
+      let filtered = [...leads];
       
       if (currentFilter === 'handled') {
         filtered = filtered.filter(l => l.status === 'handled');
@@ -282,7 +617,7 @@
       const list = document.getElementById('leads-list');
       
       if (filtered.length === 0) {
-        list.innerHTML = '<div style="padding:40px;text-align:center;color:#64748b;">🦅 No leads found. Keep grinding!</div>';
+        list.innerHTML = '<div style="padding:40px;text-align:center;color:#52525b;font-size:13px;">No leads found</div>';
         return;
       }
 
@@ -303,7 +638,7 @@
               ${lead.priority === 'high' && !isHandled ? '<span class="mini-badge urgent">!</span>' : ''}
               ${lead.hasReferral ? '<span class="mini-badge referral">REF</span>' : ''}
               ${lead.isMedicare ? '<span class="mini-badge medicare">65+</span>' : ''}
-              <span class="mini-badge ${badge.class}">${badge.icon} ${badge.label}</span>
+              <span class="mini-badge ${badge.class}">${badge.label}</span>
             </div>
           </div>
         `;
@@ -329,14 +664,14 @@
             </div>
           </div>
           <div class="header-actions-right">
-            <button class="btn btn-secondary" onclick="markAction('Called')">📞 Called</button>
-            <button class="btn btn-danger" onclick="markAction('Marked dead')">❌ Dead</button>
-            <button class="btn btn-success" onclick="markAction('Booked')">✅ Booked</button>
+            <button class="btn btn-secondary" onclick="markAction('Called')">Called</button>
+            <button class="btn btn-danger" onclick="markAction('Marked dead')">Dead</button>
+            <button class="btn btn-success" onclick="markAction('Booked')">Booked</button>
           </div>
         </div>
         
         <div class="ai-bar">
-          <span class="ai-bar-icon">🤖</span>
+          <span class="ai-bar-icon">✨</span>
           <span class="ai-bar-text"><strong>${badge.label}</strong> · ${lead.suggestedAction || 'Review this lead'}</span>
         </div>
 
@@ -345,7 +680,7 @@
             messages.map(m => `
               <div class="message-bubble ${m.isOutgoing ? 'outgoing' : 'incoming'}">
                 <div style="white-space: pre-wrap;">${m.text}</div>
-                <div class="message-time">${m.isOutgoing ? '↗️ You' : '↙️ Lead'} · ${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                <div class="message-time">${m.isOutgoing ? 'You' : 'Lead'} · ${new Date(m.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
               </div>
             `).join('')
           }
@@ -355,19 +690,23 @@
           ${lead.copyMessage ? `
             <div class="copy-suggestion">
               <div class="copy-suggestion-header">
-                <span class="copy-suggestion-title">🎯 AI Suggested Response</span>
-                <span class="copy-suggestion-tag">Tag: ${lead.tagToApply || 'None'}</span>
+                <span class="copy-suggestion-title">✨ Suggested Response</span>
+                <span class="copy-suggestion-tag">${lead.tagToApply || 'None'}</span>
               </div>
               <div class="copy-suggestion-text">${lead.copyMessage}</div>
-              <button class="copy-btn" onclick="copyMessage(this)">📋 COPY & SEND IN SALESGOD</button>
+              <div class="send-buttons">
+                <button class="copy-btn" onclick="copyMessage(this)">Copy</button>
+                <button class="send-btn" onclick="sendMessage(this)">Send in SalesGod</button>
+              </div>
+              <div class="auto-send-note">Requires SalesGod tab open with this contact selected</div>
             </div>
           ` : ''}
           <div class="quick-actions">
-            <button class="action-btn" onclick="markAction('Sent message')">✉️ Sent Msg</button>
-            <button class="action-btn" onclick="markAction('Left voicemail')">📱 Voicemail</button>
-            <button class="action-btn" onclick="markAction('No answer')">📵 No Answer</button>
-            <button class="action-btn" onclick="addQuickNote('Needs follow up')">📝 Follow Up</button>
-            <button class="action-btn" onclick="addQuickNote('Hot lead - priority')">🔥 Priority</button>
+            <button class="action-btn" onclick="markAction('Sent message')">Sent Msg</button>
+            <button class="action-btn" onclick="markAction('Left voicemail')">Voicemail</button>
+            <button class="action-btn" onclick="markAction('No answer')">No Answer</button>
+            <button class="action-btn" onclick="addQuickNote('Needs follow up')">Follow Up</button>
+            <button class="action-btn" onclick="addQuickNote('Hot lead - priority')">Priority</button>
           </div>
         </div>
       `;
@@ -381,12 +720,50 @@
     async function copyMessage(btn) {
       if (!selectedLead?.copyMessage) return;
       await navigator.clipboard.writeText(selectedLead.copyMessage);
-      btn.textContent = '✅ COPIED! NOW PASTE IN SALESGOD';
+      btn.textContent = 'Copied!';
       btn.classList.add('copied');
       setTimeout(() => {
-        btn.textContent = '📋 COPY & SEND IN SALESGOD';
+        btn.textContent = 'Copy';
         btn.classList.remove('copied');
       }, 3000);
+    }
+
+    async function sendMessage(btn) {
+      if (!selectedLead?.copyMessage) return;
+      
+      btn.textContent = 'Queued...';
+      btn.classList.add('sending');
+      
+      const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+      
+      try {
+        const res = await fetch(`/api/leads/${encodeURIComponent(phone)}/pending`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: selectedLead.copyMessage })
+        });
+        
+        if (res.ok) {
+          btn.textContent = 'Sent!';
+          btn.classList.remove('sending');
+          btn.classList.add('sent');
+          
+          await markAction('Sent message');
+          
+          setTimeout(() => {
+            btn.textContent = 'Send in SalesGod';
+            btn.classList.remove('sent');
+          }, 5000);
+        } else {
+          throw new Error('Failed to queue');
+        }
+      } catch (err) {
+        btn.textContent = 'Error';
+        btn.classList.remove('sending');
+        setTimeout(() => {
+          btn.textContent = 'Send in SalesGod';
+        }, 3000);
+      }
     }
 
     async function markAction(action) {
@@ -422,14 +799,14 @@
     }
 
     async function clearLeads() {
-      if (confirm('🇺🇸 Clear all leads? This cannot be undone!')) {
+      if (confirm('Clear all leads? This cannot be undone.')) {
         await fetch('/api/clear', { method: 'POST' });
         selectedLead = null;
         document.getElementById('conversation-panel').innerHTML = `
           <div class="no-lead-selected">
-            <div class="no-lead-icon">🦅</div>
-            <div class="no-lead-text">Select a Lead to Get Started</div>
-            <div class="no-lead-sub">Making Insurance Great Again, One Lead at a Time</div>
+            <div class="no-lead-icon">💬</div>
+            <div class="no-lead-text">Select a lead to get started</div>
+            <div class="no-lead-sub">Your conversations will appear here</div>
           </div>
         `;
         loadLeads();
