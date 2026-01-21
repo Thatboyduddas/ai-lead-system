@@ -9,48 +9,54 @@ function extractConversationData() {
   let phone = "";
   let currentTag = "";
   
-  for (const line of lines) {
-    if (line.match(/^\+1\s?\d{3}-\d{3}-\d{4}/)) {
-      phone = line;
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].match(/^\+1\s?\d{3}-\d{3}-\d{4}/)) {
+      phone = lines[i];
+      if (i > 0) contactName = lines[i - 1];
       break;
     }
   }
-  
-  const phoneIndex = lines.findIndex(l => l.match(/^\+1\s?\d{3}-\d{3}-\d{4}/));
-  if (phoneIndex > 0) contactName = lines[phoneIndex - 1];
   
   const tags = ['Quoted', 'Age and gender', 'Follow up', 'Ghosted', 'Deadline', 'Sold', 'Appointment Set'];
   for (const tag of tags) {
     if (text.includes(tag)) { currentTag = tag; break; }
   }
   
-  const outgoingStarts = ["Hey, it's Mia", "Hi, it's Mia", "Alright, may I", "Alright, what", "Assuming you have", "Touching base", "Not sure if", "I checked my", "Hey, this is Mia", "Hey it's Mia", "Text 0 to Opt Out", "Hey, following up", "I found a few"];
+  const outgoingStarts = ["Hey, it's Mia", "Hi, it's Mia", "Alright, may I", "Alright, what", "Assuming you have", "Touching base", "Not sure if", "I checked my", "Hey, this is Mia", "Hey it's Mia", "Text 0 to Opt Out", "Hey, following up", "I found a few", "Hi, it's Mia from", "Hi, it's Mia with"];
   
-  const timestampPattern = /\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[AP]M/;
+  const timestampPattern = /^\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[AP]M$/;
+  const skipWords = ['Balance', 'Dashboard', 'unread', 'Messenger', 'Calendar', 'Support', 'Info', 'Company Name', 'Email Address', 'Date of Birth', 'State', 'City', 'Postal Code', 'Address', 'Notes', 'Announcements', 'SalesGodCrm', 'Contacts', 'Phone Numbers', 'Text Drips', 'Tags', 'Wallet', 'Subscription', 'Knowledge Base', 'Scrubber', '10DLC', 'Call Logs', 'Scheduled Messages', 'Custom Fields', 'Message Templates', 'Auto Responder', 'Shared Accounts', 'Stop Words', 'Integrations', 'Not in Real-Time', 'Approved'];
   
   let messages = [];
-  let currentMsg = "";
   
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (timestampPattern.test(line)) {
-      if (currentMsg) {
-        messages.push(currentMsg.trim());
+    if (timestampPattern.test(lines[i])) {
+      // Message is the line before timestamp
+      let msgIndex = i - 1;
+      while (msgIndex >= 0 && lines[msgIndex].trim() === '') {
+        msgIndex--;
       }
-      currentMsg = "";
-    } else if (!line.includes('Balance') && !line.includes('Dashboard') && !line.includes('unread') && !line.includes('Messenger') && !line.includes('Calendar') && !line.includes('Support') && line.length > 1) {
-      currentMsg += " " + line;
+      if (msgIndex >= 0) {
+        const msg = lines[msgIndex].trim();
+        if (msg.length > 2) {
+          let skip = false;
+          for (const sw of skipWords) {
+            if (msg.includes(sw)) { skip = true; break; }
+          }
+          if (!skip) {
+            messages.push(msg);
+          }
+        }
+      }
     }
   }
   
   let lastIncoming = "";
   for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i].trim();
-    if (msg.length < 3) continue;
-    
+    const msg = messages[i];
     let isOutgoing = false;
     for (const start of outgoingStarts) {
-      if (msg.includes(start)) { isOutgoing = true; break; }
+      if (msg.startsWith(start) || msg.includes(start)) { isOutgoing = true; break; }
     }
     if (!isOutgoing) { 
       lastIncoming = msg; 
