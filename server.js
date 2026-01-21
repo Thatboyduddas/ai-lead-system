@@ -160,16 +160,43 @@ function parseAgeGender(message) {
 function detectIntent(message) {
   const text = message.toLowerCase().trim();
   
-  // STOP WORDS first
-  const stopWords = [
-    'stop', 'unsubscribe', 'remove me', 'not interested', 'no thanks', 'no thank',
-    'leave me alone', 'already have insurance', 'all good', 'all set', 'im good', 
-    "i'm good", 'pass', 'nope', 'nah', 'dont text', "don't text", 'too expensive',
-    'too pricey', 'cant afford', "can't afford", 'no money', 'not now', 'wrong number',
-    'lose my number', 'take me off', 'opted out', 'do not contact'
+  // Check for FOLLOW-UP indicators FIRST (overrides stop words)
+  // People who say "no thanks BUT..." or "im good BUT maybe later" are follow-ups, not dead
+  const followUpIndicators = [
+    'maybe', 'later', 'some time', 'sometime', 'get back', 'reach out', 
+    'check back', 'next month', 'next week', 'after', 'when i', "when i'm",
+    'once i', 'ill see', "i'll see", 'ill check', "i'll check", 'let me think', 
+    'think about', 'consider', 'might be', 'could be', 'possibly', 'see what',
+    'what you have', 'what you got', 'have time', 'get time', 'free time',
+    'busy now', 'busy right now', 'right now', 'at the moment', 'for now'
   ];
-  for (const word of stopWords) {
+  
+  const hasFollowUpIntent = followUpIndicators.some(indicator => text.includes(indicator));
+  
+  // If ANY follow-up language exists, this is a follow-up lead, not dead
+  if (hasFollowUpIntent) {
+    return { intent: 'call_later', confidence: 0.85, followUpDate: 'when they have time' };
+  }
+  
+  // HARD STOP WORDS (these are definite no's with no follow-up language)
+  const hardStopWords = [
+    'stop', 'unsubscribe', 'remove me', 'leave me alone', 'dont text', "don't text",
+    'wrong number', 'lose my number', 'take me off', 'opted out', 'do not contact'
+  ];
+  for (const word of hardStopWords) {
     if (text.includes(word)) return { intent: 'not_interested', confidence: 0.95 };
+  }
+  
+  // SOFT STOP WORDS - only count as dead if NO follow-up intent (already checked above)
+  const softStopWords = [
+    'not interested', 'no thanks', 'no thank', 'already have insurance', 
+    'all good', 'all set', 'im good', "i'm good", 'pass', 'nope', 'nah',
+    'too expensive', 'too pricey', 'cant afford', "can't afford", 'no money'
+  ];
+  
+  // Pure soft stops without follow-up intent = dead
+  for (const word of softStopWords) {
+    if (text.includes(word)) return { intent: 'not_interested', confidence: 0.85 };
   }
   
   // MEDICARE detection
@@ -271,7 +298,10 @@ RULES:
 - Match the lead's energy/tone
 - Your GOAL is always to get their age so you can provide a quote
 - Never be pushy or aggressive
-- Use casual language, contractions, no exclamation points overload
+- Use casual language, contractions
+- Sound human, not like a bot
+
+IMPORTANT: If someone says "no thanks" or "not right now" but ALSO mentions "maybe later" or "when I have time" - they are NOT dead! They're soft follow-ups. Ask WHEN to follow up.
 
 CONTEXT:
 - You sell private health insurance for ages 18-64
@@ -300,7 +330,10 @@ WHAT YOU KNOW ABOUT THIS LEAD:
       userPrompt = `The lead said "${leadMessage}" - they want a quote! Ask for the age (and gender if needed) of everyone who will be on the plan. Keep it simple.`;
       break;
     case 'call_later':
-      userPrompt = `The lead said "${leadMessage}" - they want to be contacted later. Acknowledge this positively and confirm when you'll follow up.`;
+      userPrompt = `The lead said "${leadMessage}" - they're not ready right now but left the door open for later. They might have said something like "maybe later" or "when I have time" or "not right now but...". Write a friendly, understanding response that:
+1. Acknowledges their timing without being pushy (like "totally understand" or "no problem")
+2. Asks when specifically would be a good time to reach back out
+Keep it warm and human.`;
       break;
     default:
       userPrompt = `The lead said "${leadMessage}". Write an appropriate response that moves the conversation toward getting their age for a quote, or addresses whatever they said.`;
