@@ -471,6 +471,88 @@
       color: #f87171;
     }
 
+    /* AI Chat Box */
+    .ai-chat-box {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #3f3f46;
+    }
+    
+    .ai-chat-label {
+      font-size: 12px;
+      color: #a1a1aa;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    
+    .ai-chat-input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .ai-chat-input-row input {
+      flex: 1;
+      padding: 10px 12px;
+      background: #27272a;
+      border: 1px solid #3f3f46;
+      border-radius: 6px;
+      color: #e4e4e7;
+      font-size: 13px;
+    }
+    
+    .ai-chat-input-row input:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+    
+    .ai-chat-input-row input::placeholder {
+      color: #71717a;
+    }
+    
+    .ai-chat-btn {
+      padding: 10px 16px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .ai-chat-btn:hover {
+      background: #2563eb;
+    }
+    
+    .ai-chat-btn:disabled {
+      background: #52525b;
+      cursor: not-allowed;
+    }
+    
+    .ai-quick-prompts {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    
+    .ai-quick-prompts button {
+      padding: 6px 10px;
+      background: #27272a;
+      border: 1px solid #3f3f46;
+      border-radius: 4px;
+      color: #a1a1aa;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .ai-quick-prompts button:hover {
+      background: #3f3f46;
+      color: #e4e4e7;
+    }
+
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -787,12 +869,26 @@
                 <span class="copy-suggestion-title">✨ SUGGESTED RESPONSE</span>
                 <span class="copy-suggestion-tag">${lead.tagToApply || 'None'}</span>
               </div>
-              <div class="copy-suggestion-text">${lead.copyMessage}</div>
+              <div class="copy-suggestion-text" id="current-suggestion">${lead.copyMessage}</div>
               <div class="send-buttons">
                 <button class="copy-btn" onclick="copyMessage(this)">Copy</button>
                 <button class="send-btn" onclick="sendMessage(this)">Send in SalesGod</button>
               </div>
               <div class="auto-send-note">Requires SalesGod tab open with this contact selected</div>
+              
+              <div class="ai-chat-box">
+                <div class="ai-chat-label">💬 Refine with AI</div>
+                <div class="ai-chat-input-row">
+                  <input type="text" id="ai-chat-input" placeholder="e.g. 'just ask for age' or 'be more casual'" onkeypress="if(event.key==='Enter')refineWithAI()">
+                  <button class="ai-chat-btn" onclick="refineWithAI()">Refine</button>
+                </div>
+                <div class="ai-quick-prompts">
+                  <button onclick="quickRefine('just ask for their age')">Just age</button>
+                  <button onclick="quickRefine('be more casual and friendly')">More casual</button>
+                  <button onclick="quickRefine('shorter response')">Shorter</button>
+                  <button onclick="quickRefine('push for a call')">Push for call</button>
+                </div>
+              </div>
             </div>
           ` : lead.category === 'waiting' ? `
             <div class="waiting-state">
@@ -828,6 +924,53 @@
         btn.textContent = 'Copy';
         btn.classList.remove('copied');
       }, 3000);
+    }
+
+    function quickRefine(prompt) {
+      document.getElementById('ai-chat-input').value = prompt;
+      refineWithAI();
+    }
+
+    async function refineWithAI() {
+      const input = document.getElementById('ai-chat-input');
+      const instruction = input.value.trim();
+      if (!instruction || !selectedLead) return;
+      
+      const btn = document.querySelector('.ai-chat-btn');
+      const originalText = btn.textContent;
+      btn.textContent = 'Thinking...';
+      btn.disabled = true;
+      
+      try {
+        const response = await fetch('/api/ai/refine', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: selectedLead.phone,
+            currentSuggestion: selectedLead.copyMessage,
+            leadMessage: selectedLead.messages[selectedLead.messages.length - 1]?.text || '',
+            instruction: instruction,
+            context: {
+              name: selectedLead.name,
+              tag: selectedLead.currentTag,
+              category: selectedLead.category
+            }
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (data.newResponse) {
+          document.getElementById('current-suggestion').textContent = data.newResponse;
+          selectedLead.copyMessage = data.newResponse;
+          input.value = '';
+        }
+      } catch (err) {
+        console.error('AI refine error:', err);
+      }
+      
+      btn.textContent = originalText;
+      btn.disabled = false;
     }
 
     async function sendMessage(btn) {
