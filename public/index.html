@@ -783,6 +783,11 @@
       border-radius: 6px;
       font-weight: 500;
     }
+    .copy-suggestion-tag.pending-tag {
+      color: var(--gold-primary);
+      background: rgba(251, 191, 36, 0.15);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
     .copy-suggestion-text {
       font-size: 14px;
       color: var(--text-primary);
@@ -2765,6 +2770,25 @@
       renderLeads();
     }
 
+    function getPendingTag(copyMessage, currentTag) {
+      if (!copyMessage) return currentTag || 'None';
+      const msg = copyMessage.toLowerCase();
+
+      // If sending a quote, tag will be Quoted
+      if (msg.includes('qualify for plans') || msg.includes('deductible') || (msg.includes('$') && msg.includes('month'))) {
+        return '→ Quoted';
+      }
+      // If asking for age, tag will be Age and gender
+      if (msg.includes('age') && (msg.includes('need') || msg.includes('just'))) {
+        return '→ Age and gender';
+      }
+      // Medicare referral
+      if (msg.includes('faith') && msg.includes('medicare')) {
+        return '→ Medicare Referral';
+      }
+      return currentTag || 'None';
+    }
+
     function getBadge(category) {
       const badges = {
         wants_quote: { icon: 'Fire', label: 'HOT', class: 'hot' },
@@ -2937,7 +2961,7 @@
             <div class="copy-suggestion">
               <div class="copy-suggestion-header">
                 <span class="copy-suggestion-title">YOUR RESPONSE</span>
-                <span class="copy-suggestion-tag">${lead.tagToApply || 'None'}</span>
+                <span class="copy-suggestion-tag pending-tag">${getPendingTag(lead.copyMessage, lead.currentTag)}</span>
               </div>
               <textarea class="editable-response" id="editable-response" rows="4">${lead.copyMessage}</textarea>
               <div class="send-buttons">

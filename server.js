@@ -368,7 +368,7 @@ function processMessage(message, context = {}) {
         priority = 'high';
         suggestedAction = `💰 SEND QUOTE: ${adults} adult(s), ${kids} kid(s), ages: ${ages.join(', ')}, bracket ${quote.bracket}`;
         copyMessage = MESSAGES.quote(quote.lowPrice, quote.highPrice);
-        tagToApply = 'Quoted';
+        // Don't set tagToApply here - tag applies AFTER user sends the quote
       }
       break;
       
