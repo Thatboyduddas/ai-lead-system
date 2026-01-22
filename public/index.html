@@ -2385,7 +2385,7 @@
     </div>
 
     <!-- Calendar View -->
-    <div class="calendar-view" id="calendar-view">
+    <div class="calendar-view" id="calendar-view" style="display:none !important;">
       <div class="calendar-header">
         <h2>Calendar & Follow-ups</h2>
         <div class="calendar-actions">
@@ -2421,7 +2421,7 @@
     </div>
 
     <!-- Analytics View -->
-    <div class="analytics-view" id="analytics-view">
+    <div class="analytics-view" id="analytics-view" style="display:none !important;">
       <div class="analytics-header">
         <h2>Analytics Dashboard</h2>
         <p>Track your performance and conversion metrics</p>
@@ -4120,6 +4120,8 @@
       }
     }
 
+    // Initialize view on page load
+    switchView('leads');
     setInterval(loadLeads, 5000);
     loadLeads();
   </script>

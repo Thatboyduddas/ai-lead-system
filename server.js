@@ -977,7 +977,7 @@ async function sendMessageToSalesGod(phone, message, leadName = '') {
 app.post('/webhook/salesgod', async (req, res) => {
   console.log('Webhook received:', req.body);
 
-  const { phone, full_name, messages_as_string, status, isOutgoing, hasReferral } = req.body;
+  const { phone, full_name, messages_as_string, status, isOutgoing, hasReferral, isArchived, viewType } = req.body;
 
   if (!phone) {
     return res.json({ success: false, error: 'No phone number' });
@@ -1080,6 +1080,17 @@ app.post('/webhook/salesgod', async (req, res) => {
 
     if (status) {
       lead.currentTag = status;
+    }
+
+    // Sync archived status from SalesGod
+    if (isArchived !== undefined) {
+      lead.archived = isArchived;
+      if (isArchived) lead.archivedAt = new Date().toISOString();
+    }
+
+    // Track which view the lead was seen in
+    if (viewType) {
+      lead.salesgodView = viewType;
     }
 
     await saveLead(cleanPhone, lead);

@@ -18,6 +18,8 @@ function extractConversationData() {
   let phone = "";
   let currentTag = "";
   let allMessages = [];
+  let isArchived = false;
+  let viewType = "recent"; // Default
 
   const text = document.body.innerText;
   const lines = text.split('\n').filter(l => l.trim());
@@ -31,6 +33,26 @@ function extractConversationData() {
   }
 
   if (phone) currentPhone = phone.replace(/[^0-9+]/g, '');
+
+  // Detect active tab/view in SalesGod (Unread, Recent, Archived, All)
+  const activeTabBtn = document.querySelector('button.bg-primary-500, button[class*="bg-blue"], button.active');
+  if (activeTabBtn) {
+    const tabText = activeTabBtn.innerText?.toLowerCase() || '';
+    if (tabText.includes('archived')) {
+      isArchived = true;
+      viewType = 'archived';
+    } else if (tabText.includes('unread')) {
+      viewType = 'unread';
+    } else if (tabText.includes('all')) {
+      viewType = 'all';
+    }
+  }
+
+  // Also check URL for archived indicator
+  if (window.location.href.includes('archived') || window.location.search.includes('archived')) {
+    isArchived = true;
+    viewType = 'archived';
+  }
 
   const tags = ["Age and gender", "Quoted", "Follow up", "Ghosted", "Appointment Set", "Called: Answered", "Called: No Answer", "Deadline", "Did you receive?", "Another time", "Sold", "Dead", "Medicare Referral"];
   for (const tag of tags) {
@@ -48,7 +70,7 @@ function extractConversationData() {
     }
   });
 
-  return { contactName, phone, currentTag, messages: allMessages, lastMessage: allMessages[allMessages.length - 1] || null };
+  return { contactName, phone, currentTag, messages: allMessages, lastMessage: allMessages[allMessages.length - 1] || null, isArchived, viewType };
 }
 
 function sendToDashboard(data) {
@@ -69,7 +91,9 @@ function sendToDashboard(data) {
       messages_as_string: lastMsg.text,
       status: data.currentTag || "new",
       isOutgoing: lastMsg.isOutgoing,
-      messageCount: data.messages.length
+      messageCount: data.messages.length,
+      isArchived: data.isArchived || false,
+      viewType: data.viewType || "recent"
     })
   }).catch(() => {});
 }
