@@ -345,16 +345,15 @@ function detectIntent(message, context = {}) {
 }
 
 // ============ TIME SLOT GENERATION (EST) ============
-function generateTimeSlots() {
+function getSchedulingMessage() {
   // Get current time in EST
   const now = new Date();
-  const estOptions = { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', hour12: true };
   const estHour = parseInt(new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }));
 
+  // Generate 3 slots for today
   const todaySlots = [];
-  const possibleHours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]; // 9am to 7pm
+  const possibleHours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]; // 9am to 9pm
 
-  // Find 3 available slots for today (at least 1 hour from now)
   for (const hour of possibleHours) {
     if (hour > estHour && todaySlots.length < 3) {
       const ampm = hour >= 12 ? 'pm' : 'am';
@@ -363,28 +362,26 @@ function generateTimeSlots() {
     }
   }
 
-  // If less than 3 slots today, we'll just use what we have
-  // Generate tomorrow slot
+  // If it's too late for today slots, use morning times for tomorrow
+  if (todaySlots.length < 3) {
+    const morning = ['9am', '10am', '11am'];
+    while (todaySlots.length < 3) {
+      todaySlots.push(morning[todaySlots.length]);
+    }
+  }
+
+  // Generate tomorrow day name
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const tomorrowDay = dayNames[tomorrow.getDay()];
-  const tomorrowSlot = `${tomorrowDay} at 10am`;
 
-  return { todaySlots, tomorrowSlot, estHour };
-}
-
-function getSchedulingMessage() {
-  const { todaySlots, tomorrowSlot, estHour } = generateTimeSlots();
-
-  if (todaySlots.length >= 3) {
-    return `Perfect! I have ${todaySlots[0]}, ${todaySlots[1]}, or ${todaySlots[2]} EST available today. Or ${tomorrowSlot} EST if that works better?`;
-  } else if (todaySlots.length > 0) {
-    return `Perfect! I have ${todaySlots.join(' or ')} EST available today. Or ${tomorrowSlot} EST if that works better?`;
-  } else {
-    // Too late today, offer tomorrow
-    return `Perfect! I'm available ${tomorrowSlot} EST, or let me know what time works for you tomorrow!`;
+  // If we had to use morning slots (it's late), label them as tomorrow
+  if (estHour >= 20) {
+    return `Perfect! I have ${todaySlots[0]}, ${todaySlots[1]}, or ${todaySlots[2]} EST tomorrow (${tomorrowDay}). Or let me know another time that works!`;
   }
+
+  return `Perfect! I have ${todaySlots[0]}, ${todaySlots[1]}, or ${todaySlots[2]} EST today. Or ${tomorrowDay} at 10am EST if tomorrow works better?`;
 }
 
 // ============ MESSAGE TEMPLATES ============

@@ -2516,9 +2516,13 @@
     }
 
     async function simulateLeadReply() {
+      console.log('simulateLeadReply called, autoSendEnabled:', autoSendEnabled);
       const input = document.getElementById('simulate-lead-input');
       const text = input.value.trim();
-      if (!text || !selectedLead) return;
+      if (!text || !selectedLead) {
+        console.log('No text or no selectedLead, aborting');
+        return;
+      }
 
       const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
 
