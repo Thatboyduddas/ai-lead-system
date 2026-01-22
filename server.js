@@ -973,11 +973,23 @@ async function sendMessageToSalesGod(phone, message, leadName = '') {
   }
 }
 
+// ============ STOP WORDS FOR BLOCKED LEADS ============
+const STOP_WORDS = [
+  'stop', 'unsubscribe', 'remove me', 'leave me alone', 'dont text', "don't text",
+  'wrong number', 'lose my number', 'take me off', 'opted out', 'do not contact',
+  'quit texting', 'stop texting', 'remove from list', 'spam', 'block'
+];
+
+function hasStopWord(text) {
+  const lower = (text || '').toLowerCase();
+  return STOP_WORDS.some(word => lower.includes(word));
+}
+
 // ============ WEBHOOK ============
 app.post('/webhook/salesgod', async (req, res) => {
   console.log('Webhook received:', req.body);
 
-  const { phone, full_name, messages_as_string, status, isOutgoing, hasReferral, isArchived, viewType } = req.body;
+  const { phone, full_name, messages_as_string, status, isOutgoing, hasReferral, isArchived, viewType, fullSync, allMessages } = req.body;
 
   if (!phone) {
     return res.json({ success: false, error: 'No phone number' });
@@ -999,7 +1011,8 @@ app.post('/webhook/salesgod', async (req, res) => {
         notes: [],
         actions: [],
         createdAt: new Date().toISOString(),
-        hasReferral: false
+        hasReferral: false,
+        blocked: false
       };
     }
 
@@ -1011,41 +1024,31 @@ app.post('/webhook/salesgod', async (req, res) => {
       lead.hasReferral = true;
     }
 
-    // Parse the SalesGod message format
-    const parsed = parseSalesGodMessage(messages_as_string);
-    const messageText = parsed.text || messages_as_string;
-    // Use parsed direction if available, otherwise use the isOutgoing from request
-    const msgIsOutgoing = parsed.msgId ? parsed.isOutgoing : !!isOutgoing;
-    const msgTimestamp = parsed.timestamp || new Date().toISOString();
+    // Handle FULL SYNC mode - import all messages from history
+    if (fullSync && allMessages && Array.isArray(allMessages)) {
+      console.log(`📥 Full sync for ${cleanPhone}: ${allMessages.length} messages`);
 
-    // Check if we already have this message (by text + direction combo)
-    const lastMsg = lead.messages[lead.messages.length - 1];
-    const isDuplicate = lastMsg && lastMsg.text === messageText && lastMsg.isOutgoing === msgIsOutgoing;
+      // Replace all messages with the full history
+      lead.messages = allMessages.map((msg, idx) => ({
+        text: msg.text || msg,
+        timestamp: msg.timestamp || new Date(Date.now() - (allMessages.length - idx) * 60000).toISOString(),
+        isOutgoing: msg.isOutgoing || false,
+        syncedFromHistory: true
+      }));
 
-    if (!isDuplicate && messageText) {
-      let analysis = null;
+      // Check ALL messages for stop words to mark as blocked
+      const hasBlock = lead.messages.some(m => !m.isOutgoing && hasStopWord(m.text));
+      if (hasBlock) {
+        lead.blocked = true;
+        lead.blockedAt = new Date().toISOString();
+        lead.blockedReason = 'stop_word';
+        console.log(`🚫 Lead ${cleanPhone} marked as BLOCKED (stop word found)`);
+      }
 
-      if (msgIsOutgoing) {
-        // OUTGOING MESSAGE - We sent something, clear suggestions
-        lead.category = 'waiting';
-        lead.priority = 'low';
-        lead.suggestedAction = '⏳ Waiting for response';
-        lead.copyMessage = null;
-        lead.tagToApply = null;
-
-        // Track what we sent
-        const msgLower = messageText.toLowerCase();
-        if (msgLower.includes('qualify for plans between') || msgLower.includes('deductibles and networks')) {
-          lead.quoteSent = true;
-          lead.quoteSentAt = new Date().toISOString();
-        }
-        if (msgLower.includes('faith') && (msgLower.includes('medicare') || msgLower.includes('352'))) {
-          lead.referralSent = true;
-        }
-
-      } else {
-        // INCOMING MESSAGE - Analyze and suggest response
-        analysis = processMessage(messageText, {
+      // Re-analyze based on last incoming message
+      const lastIncoming = [...lead.messages].reverse().find(m => !m.isOutgoing);
+      if (lastIncoming) {
+        const analysis = processMessage(lastIncoming.text, {
           currentTag: lead.currentTag,
           quoteSent: lead.quoteSent,
           referralSent: lead.referralSent,
@@ -1055,27 +1058,107 @@ app.post('/webhook/salesgod', async (req, res) => {
         lead.priority = analysis.priority;
         lead.suggestedAction = analysis.suggestedAction;
         lead.copyMessage = analysis.copyMessage;
-        lead.tagToApply = analysis.tagToApply;
-        lead.parsedData = analysis.parsedData;
 
-        if (analysis.followUpDate) {
-          lead.followUpDate = analysis.followUpDate;
-        }
-
-        if (analysis.intent === 'medicare') {
-          lead.isMedicare = true;
+        // Auto-block on not_interested/dead category
+        if (analysis.intent === 'not_interested' || analysis.category === 'dead') {
+          lead.blocked = true;
+          lead.blockedAt = new Date().toISOString();
+          lead.blockedReason = 'not_interested';
         }
       }
 
-      lead.messages.push({
-        text: messageText,
-        timestamp: msgTimestamp,
-        isOutgoing: msgIsOutgoing,
-        analysis: analysis,
-        salesgodId: parsed.msgId || null
-      });
+      lead.lastSyncAt = new Date().toISOString();
+      lead.lastMessageAt = lead.messages.length > 0
+        ? lead.messages[lead.messages.length - 1].timestamp
+        : new Date().toISOString();
 
-      lead.lastMessageAt = new Date().toISOString();
+    } else {
+      // Normal single message processing
+      // Parse the SalesGod message format
+      const parsed = parseSalesGodMessage(messages_as_string);
+      const messageText = parsed.text || messages_as_string;
+      // Use parsed direction if available, otherwise use the isOutgoing from request
+      const msgIsOutgoing = parsed.msgId ? parsed.isOutgoing : !!isOutgoing;
+      const msgTimestamp = parsed.timestamp || new Date().toISOString();
+
+      // Check if we already have this message (by text + direction combo)
+      const lastMsg = lead.messages[lead.messages.length - 1];
+      const isDuplicate = lastMsg && lastMsg.text === messageText && lastMsg.isOutgoing === msgIsOutgoing;
+
+      if (!isDuplicate && messageText) {
+        let analysis = null;
+
+        if (msgIsOutgoing) {
+          // OUTGOING MESSAGE - We sent something, clear suggestions
+          lead.category = 'waiting';
+          lead.priority = 'low';
+          lead.suggestedAction = '⏳ Waiting for response';
+          lead.copyMessage = null;
+          lead.tagToApply = null;
+
+          // Track what we sent
+          const msgLower = messageText.toLowerCase();
+          if (msgLower.includes('qualify for plans between') || msgLower.includes('deductibles and networks')) {
+            lead.quoteSent = true;
+            lead.quoteSentAt = new Date().toISOString();
+          }
+          if (msgLower.includes('faith') && (msgLower.includes('medicare') || msgLower.includes('352'))) {
+            lead.referralSent = true;
+          }
+
+        } else {
+          // INCOMING MESSAGE - Check for stop words first
+          if (hasStopWord(messageText)) {
+            lead.blocked = true;
+            lead.blockedAt = new Date().toISOString();
+            lead.blockedReason = 'stop_word';
+            lead.category = 'dead';
+            lead.priority = 'low';
+            lead.suggestedAction = '🚫 BLOCKED - Stop word detected';
+            lead.copyMessage = null;
+            console.log(`🚫 Lead ${cleanPhone} marked as BLOCKED (stop word: "${messageText.substring(0, 50)}")`);
+          } else {
+            // Analyze and suggest response
+            analysis = processMessage(messageText, {
+              currentTag: lead.currentTag,
+              quoteSent: lead.quoteSent,
+              referralSent: lead.referralSent,
+              messageHistory: lead.messages
+            });
+            lead.category = analysis.category;
+            lead.priority = analysis.priority;
+            lead.suggestedAction = analysis.suggestedAction;
+            lead.copyMessage = analysis.copyMessage;
+            lead.tagToApply = analysis.tagToApply;
+            lead.parsedData = analysis.parsedData;
+
+            if (analysis.followUpDate) {
+              lead.followUpDate = analysis.followUpDate;
+            }
+
+            if (analysis.intent === 'medicare') {
+              lead.isMedicare = true;
+            }
+
+            // Auto-block on not_interested intent
+            if (analysis.intent === 'not_interested') {
+              lead.blocked = true;
+              lead.blockedAt = new Date().toISOString();
+              lead.blockedReason = 'not_interested';
+            }
+          }
+        }
+
+        lead.messages.push({
+          text: messageText,
+          timestamp: msgTimestamp,
+          isOutgoing: msgIsOutgoing,
+          analysis: analysis,
+          salesgodId: parsed.msgId || null
+        });
+
+        lead.lastMessageAt = new Date().toISOString();
+      }
     }
 
     if (status) {
@@ -1094,7 +1177,7 @@ app.post('/webhook/salesgod', async (req, res) => {
     }
 
     await saveLead(cleanPhone, lead);
-    res.json({ success: true, lead });
+    res.json({ success: true, lead, blocked: lead.blocked });
   } catch (err) {
     console.error('Webhook error:', err);
     res.status(500).json({ success: false, error: err.message });
@@ -1227,6 +1310,31 @@ app.post('/api/leads/:phone/archive', async (req, res) => {
       await saveLead(phone, lead);
     }
     res.json({ success: true, archived: lead?.archived });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Unblock a blocked lead
+app.post('/api/leads/:phone/unblock', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      lead.blocked = false;
+      lead.blockedAt = null;
+      lead.blockedReason = null;
+      lead.unblockedAt = new Date().toISOString();
+      // Re-categorize as review since they're unblocked
+      if (lead.category === 'dead') {
+        lead.category = 'review';
+        lead.suggestedAction = '👀 Unblocked - review this lead';
+      }
+      await saveLead(phone, lead);
+      console.log(`✅ Lead ${phone} unblocked`);
+    }
+    res.json({ success: true, blocked: false });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

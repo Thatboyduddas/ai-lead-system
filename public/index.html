@@ -3652,17 +3652,19 @@
       let filtered = [...leads];
 
       // Main filters: Unread, Recent, Archived, All
+      // BLOCKED leads only show in "All" filter - they are hidden from Unread/Recent/Archived
       if (currentFilter === 'unread') {
-        // Unread = last message is incoming and not marked read
-        filtered = filtered.filter(l => isUnread(l) && !l.archived);
+        // Unread = last message is incoming and not marked read, NOT blocked
+        filtered = filtered.filter(l => isUnread(l) && !l.archived && !l.blocked);
       } else if (currentFilter === 'recent') {
-        // Recent = not archived, active in last 7 days
+        // Recent = not archived, not blocked, active in last 7 days
         const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-        filtered = filtered.filter(l => !l.archived && new Date(l.lastMessageAt || l.createdAt).getTime() > weekAgo);
+        filtered = filtered.filter(l => !l.archived && !l.blocked && new Date(l.lastMessageAt || l.createdAt).getTime() > weekAgo);
       } else if (currentFilter === 'archived') {
-        filtered = filtered.filter(l => l.archived === true);
+        // Archived = archived but NOT blocked (blocked shows in All only)
+        filtered = filtered.filter(l => l.archived === true && !l.blocked);
       } else if (currentFilter === 'all') {
-        // All = everything including archived
+        // All = everything including archived AND blocked
         filtered = filtered;
       } else if (currentFilter === 'handled') {
         filtered = filtered.filter(l => l.status === 'handled');
@@ -3715,12 +3717,13 @@
             </div>
             <div class="lead-item-preview">${lastMsg?.text?.substring(0, 50) || 'No messages'}${lastMsg?.text?.length > 50 ? '...' : ''}</div>
             <div class="lead-item-badges">
-              ${(lead.priority === 'urgent' || lead.priority === 'high') && !isHandled ? '<span class="mini-badge urgent">!</span>' : ''}
-              ${stale ? '<span class="mini-badge stale">STALE</span>' : ''}
+              ${lead.blocked ? '<span class="mini-badge dead" style="background:rgba(239,68,68,0.3);color:#f87171;border:1px solid rgba(239,68,68,0.5);">🚫 BLOCKED</span>' : ''}
+              ${(lead.priority === 'urgent' || lead.priority === 'high') && !isHandled && !lead.blocked ? '<span class="mini-badge urgent">!</span>' : ''}
+              ${stale && !lead.blocked ? '<span class="mini-badge stale">STALE</span>' : ''}
               ${hasFollowUp ? `<span class="mini-badge scheduled">${lead.followUpDate}</span>` : ''}
               ${lead.hasReferral ? '<span class="mini-badge referral">REF</span>' : ''}
               ${lead.isMedicare ? '<span class="mini-badge medicare">65+</span>' : ''}
-              <span class="mini-badge ${badge.class}">${badge.label}</span>
+              ${!lead.blocked ? `<span class="mini-badge ${badge.class}">${badge.label}</span>` : ''}
             </div>
           </div>
         `;
@@ -3744,12 +3747,20 @@
       const messages = lead.messages || [];
 
       document.getElementById('conversation-panel').innerHTML = `
+        ${lead.blocked ? `
+        <div style="background:linear-gradient(135deg,rgba(239,68,68,0.3),rgba(153,27,27,0.2));padding:12px 28px;border-bottom:2px solid #ef4444;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:20px;">🚫</span>
+          <span style="color:#f87171;font-weight:700;">BLOCKED LEAD</span>
+          <span style="color:#a1a1aa;font-size:13px;">- This lead used a stop word and will only appear in "All" filter</span>
+          <button style="margin-left:auto;background:rgba(239,68,68,0.2);border:1px solid #ef4444;color:#f87171;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;" onclick="unblockLead()">Unblock</button>
+        </div>
+        ` : ''}
         <div class="conversation-header">
           <div class="contact-info">
-            <div class="contact-avatar">${(lead.name || '?')[0].toUpperCase()}</div>
+            <div class="contact-avatar" ${lead.blocked ? 'style="border-color:#ef4444;background:linear-gradient(135deg,#ef4444,#991b1b);"' : ''}>${(lead.name || '?')[0].toUpperCase()}</div>
             <div class="contact-details">
-              <h2>${lead.name || 'Unknown'}</h2>
-              <p>${lead.phone}${lead.followUpDate ? ` | Follow up: ${lead.followUpDate}` : ''}</p>
+              <h2>${lead.name || 'Unknown'}${lead.blocked ? ' <span style="color:#ef4444;font-size:12px;">🚫</span>' : ''}</h2>
+              <p>${lead.phone}${lead.followUpDate ? ` | Follow up: ${lead.followUpDate}` : ''}${lead.blocked ? ' | <span style="color:#ef4444;">Blocked</span>' : ''}</p>
             </div>
             </div>
           </div>
@@ -4086,6 +4097,23 @@
         // Update button text
         const btn = document.getElementById('archive-btn');
         if (btn) btn.textContent = newArchived ? '📥 Unarchive' : '📦 Archive';
+      }
+    }
+
+    async function unblockLead() {
+      if (!selectedLead) return;
+      const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+
+      const res = await fetch(`/api/leads/${encodeURIComponent(phone)}/unblock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (res.ok) {
+        selectedLead.blocked = false;
+        showToast('✅ Lead unblocked - will now appear in all filters', 'success');
+        loadLeads();
+        openLead(selectedLead.phone);
       }
     }
 

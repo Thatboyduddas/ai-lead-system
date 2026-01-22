@@ -526,32 +526,134 @@ function createStatusIndicator() {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: #1e293b;
+    background: linear-gradient(135deg, #991b1b, #1e3a5f);
     color: white;
-    padding: 8px 14px;
-    border-radius: 20px;
+    padding: 10px 16px;
+    border-radius: 12px;
     font-family: sans-serif;
     font-size: 12px;
     z-index: 99998;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    border: 1px solid rgba(251,191,36,0.3);
   `;
   indicator.innerHTML = `
-    <span style="width:8px;height:8px;background:#22c55e;border-radius:50%;"></span>
-    <span>Duddas CRM</span>
-    <span id="duddas-queue-count" style="background:#3b82f6;padding:2px 6px;border-radius:10px;font-size:10px;">0</span>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="width:8px;height:8px;background:#22c55e;border-radius:50%;"></span>
+      <span style="font-weight:bold;">Duddas CRM v5.0</span>
+      <span id="duddas-queue-count" style="background:#3b82f6;padding:2px 6px;border-radius:10px;font-size:10px;">0</span>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button id="duddas-sync-all" style="background:#fbbf24;color:#000;border:none;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:bold;cursor:pointer;">📥 Sync All</button>
+      <button id="duddas-queue-btn" style="background:#3b82f6;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">Queue</button>
+    </div>
+    <div id="duddas-sync-status" style="font-size:10px;color:#fbbf24;display:none;"></div>
   `;
 
-  indicator.onclick = async () => {
+  document.body.appendChild(indicator);
+
+  // Queue button click
+  document.getElementById('duddas-queue-btn').onclick = async () => {
     const res = await fetch(DASHBOARD_URL + '/api/queue/pending');
     const data = await res.json();
     alert(`Queue Status:\n\nAuto-Send: ${data.autoSendEnabled ? 'ON' : 'OFF'}\nMessages in queue: ${data.count}\n\n${data.queue.map(q => `• ${q.name || q.phone}: "${q.message.substring(0,30)}..."`).join('\n') || 'Queue empty'}`);
   };
 
-  document.body.appendChild(indicator);
+  // Sync All button click
+  document.getElementById('duddas-sync-all').onclick = () => syncAllHistory();
+}
+
+// ============================================
+// SYNC ALL HISTORY FEATURE
+// ============================================
+let syncInProgress = false;
+
+async function syncAllHistory() {
+  if (syncInProgress) {
+    alert('Sync already in progress!');
+    return;
+  }
+
+  const confirm = window.confirm('This will sync all leads from the current view to your dashboard.\n\nMake sure you are on the "All" tab in SalesGod.\n\nThis may take a few minutes. Continue?');
+  if (!confirm) return;
+
+  syncInProgress = true;
+  const statusEl = document.getElementById('duddas-sync-status');
+  const syncBtn = document.getElementById('duddas-sync-all');
+  statusEl.style.display = 'block';
+  syncBtn.disabled = true;
+  syncBtn.textContent = '⏳ Syncing...';
+
+  try {
+    // Find all lead items in the list
+    const leadItems = document.querySelectorAll('[class*="contact-item"], [class*="conversation-item"], .cursor-pointer');
+    const validLeads = Array.from(leadItems).filter(el => {
+      const text = el.innerText || '';
+      return text.match(/\+1\s?\d{3}/) || text.match(/\d{3}-\d{3}-\d{4}/);
+    });
+
+    statusEl.textContent = `Found ${validLeads.length} leads to sync...`;
+    let synced = 0;
+    let errors = 0;
+
+    for (let i = 0; i < validLeads.length; i++) {
+      const lead = validLeads[i];
+      statusEl.textContent = `Syncing ${i + 1}/${validLeads.length}...`;
+
+      try {
+        // Click on the lead to open it
+        lead.click();
+        await sleep(1500); // Wait for conversation to load
+
+        // Extract and send data
+        const data = extractConversationData();
+        if (data.phone && data.messages.length > 0) {
+          await fetch(DASHBOARD_URL + "/webhook/salesgod", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              phone: data.phone,
+              full_name: data.contactName,
+              messages_as_string: data.messages.map(m => m.text).join(' | '),
+              status: data.currentTag || "new",
+              isOutgoing: data.lastMessage?.isOutgoing || false,
+              messageCount: data.messages.length,
+              isArchived: data.isArchived || false,
+              viewType: data.viewType || "all",
+              fullSync: true,
+              allMessages: data.messages
+            })
+          });
+          synced++;
+        }
+      } catch (e) {
+        errors++;
+        console.error('Sync error for lead:', e);
+      }
+
+      // Small delay between leads
+      await sleep(500);
+    }
+
+    statusEl.textContent = `✅ Done! Synced ${synced} leads${errors > 0 ? `, ${errors} errors` : ''}`;
+    setTimeout(() => {
+      statusEl.style.display = 'none';
+    }, 5000);
+
+  } catch (err) {
+    statusEl.textContent = `❌ Error: ${err.message}`;
+    console.error('Sync all error:', err);
+  }
+
+  syncInProgress = false;
+  syncBtn.disabled = false;
+  syncBtn.textContent = '📥 Sync All';
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function updateStatusIndicator() {
