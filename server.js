@@ -1172,7 +1172,7 @@ app.get('/api/leads', async (req, res) => {
 app.post('/api/leads/:phone/action', async (req, res) => {
   const phone = req.params.phone.replace(/[^0-9+]/g, '');
   const { action } = req.body;
-  
+
   try {
     const lead = await getLead(phone);
     if (lead) {
@@ -1181,6 +1181,41 @@ app.post('/api/leads/:phone/action', async (req, res) => {
       await saveLead(phone, lead);
     }
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Mark lead as read
+app.post('/api/leads/:phone/read', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      lead.isRead = true;
+      lead.readAt = new Date().toISOString();
+      await saveLead(phone, lead);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Archive/unarchive lead
+app.post('/api/leads/:phone/archive', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+  const { archived } = req.body;
+
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      lead.archived = archived !== false; // Default to true
+      lead.archivedAt = lead.archived ? new Date().toISOString() : null;
+      await saveLead(phone, lead);
+    }
+    res.json({ success: true, archived: lead?.archived });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

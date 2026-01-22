@@ -2353,7 +2353,10 @@
         <div class="stat-item">65+ <span class="count" id="stat-medicare">0</span></div>
       </div>
       <div class="filter-tabs">
-        <button class="filter-tab active" data-filter="all" onclick="setFilter('all')">All</button>
+        <button class="filter-tab" data-filter="unread" onclick="setFilter('unread')">Unread</button>
+        <button class="filter-tab active" data-filter="recent" onclick="setFilter('recent')">Recent</button>
+        <button class="filter-tab" data-filter="archived" onclick="setFilter('archived')">Archived</button>
+        <button class="filter-tab" data-filter="all" onclick="setFilter('all')">All</button>
         <button class="filter-tab" data-filter="hot" onclick="setFilter('hot')">Hot</button>
         <button class="filter-tab" data-filter="ready_for_quote" onclick="setFilter('ready_for_quote')">Quote</button>
         <button class="filter-tab" data-filter="soft_positive" onclick="setFilter('soft_positive')">Soft</button>
@@ -2538,7 +2541,7 @@
 
   <script>
     let leads = [];
-    let currentFilter = 'all';
+    let currentFilter = 'recent';
     let selectedLead = null;
     let autoSendEnabled = false;
     let currentView = 'leads';
@@ -3637,11 +3640,31 @@
       return daysSince >= 3;
     }
 
+    // Helper: check if lead is unread (last message is incoming)
+    function isUnread(lead) {
+      if (!lead.messages || lead.messages.length === 0) return false;
+      const lastMsg = lead.messages[lead.messages.length - 1];
+      return !lastMsg.isOutgoing && !lead.isRead;
+    }
+
     function renderLeads() {
       const search = document.getElementById('search').value.toLowerCase();
       let filtered = [...leads];
 
-      if (currentFilter === 'handled') {
+      // Main filters: Unread, Recent, Archived, All
+      if (currentFilter === 'unread') {
+        // Unread = last message is incoming and not marked read
+        filtered = filtered.filter(l => isUnread(l) && !l.archived);
+      } else if (currentFilter === 'recent') {
+        // Recent = not archived, active in last 7 days
+        const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+        filtered = filtered.filter(l => !l.archived && new Date(l.lastMessageAt || l.createdAt).getTime() > weekAgo);
+      } else if (currentFilter === 'archived') {
+        filtered = filtered.filter(l => l.archived === true);
+      } else if (currentFilter === 'all') {
+        // All = everything including archived
+        filtered = filtered;
+      } else if (currentFilter === 'handled') {
         filtered = filtered.filter(l => l.status === 'handled');
       } else if (currentFilter === 'referral') {
         filtered = filtered.filter(l => l.hasReferral === true);
@@ -3650,8 +3673,9 @@
         filtered = filtered.filter(l => l.currentTag === tagName);
       } else if (currentFilter === 'medicare') {
         filtered = filtered.filter(l => l.category === 'medicare' || l.isMedicare);
-      } else if (currentFilter !== 'all') {
-        filtered = filtered.filter(l => l.category === currentFilter && l.status !== 'handled');
+      } else {
+        // Category filters (hot, quote, soft, etc.) - exclude archived
+        filtered = filtered.filter(l => l.category === currentFilter && l.status !== 'handled' && !l.archived);
       }
 
       if (search) {
@@ -3682,8 +3706,9 @@
         return `
           <div class="lead-item ${isActive ? 'active' : ''} ${isHandled ? 'handled' : ''} ${stale ? 'stale' : ''}" onclick="openLead('${lead.phone}')">
             <div class="lead-item-header">
-              <span class="lead-item-name">${lead.name || 'Unknown'}</span>
+              <span class="lead-item-name">${isUnread(lead) ? '🔵 ' : ''}${lead.name || 'Unknown'}</span>
               <div style="display:flex;align-items:center;gap:8px;">
+                ${lead.archived ? '<span style="font-size:10px;color:#71717a;">📦</span>' : ''}
                 <span class="urgency-score" style="font-size:10px;font-weight:700;color:${urgencyColor};background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;" title="Urgency Score">${urgency}</span>
                 <span class="lead-item-time">${timeAgo(lead.lastMessageAt || lead.createdAt)}</span>
               </div>
@@ -3706,6 +3731,13 @@
       const lead = leads.find(l => l.phone === phone);
       if (!lead) return;
       selectedLead = lead;
+
+      // Auto-mark as read when opening
+      if (!lead.isRead) {
+        lead.isRead = true;
+        fetch(`/api/leads/${encodeURIComponent(phone.replace(/[^0-9+]/g, ''))}/read`, { method: 'POST' });
+      }
+
       renderLeads();
 
       const badge = getBadge(lead.category);
@@ -3748,6 +3780,7 @@
             <button class="btn btn-secondary" onclick="openCallModal()">Log Call</button>
             <button class="btn btn-danger" onclick="markAction('Marked dead')">Dead</button>
             <button class="btn btn-success" onclick="markAction('Booked')">Booked</button>
+            <button class="btn btn-secondary" onclick="archiveLead()" id="archive-btn">${lead.archived ? '📥 Unarchive' : '📦 Archive'}</button>
           </div>
         </div>
 
@@ -4033,6 +4066,27 @@
         body: JSON.stringify({ status: 'handled' })
       });
       loadLeads();
+    }
+
+    async function archiveLead() {
+      if (!selectedLead) return;
+      const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+      const newArchived = !selectedLead.archived;
+
+      const res = await fetch(`/api/leads/${encodeURIComponent(phone)}/archive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ archived: newArchived })
+      });
+
+      if (res.ok) {
+        selectedLead.archived = newArchived;
+        showToast(newArchived ? '📦 Lead archived' : '📥 Lead unarchived', 'success');
+        loadLeads();
+        // Update button text
+        const btn = document.getElementById('archive-btn');
+        if (btn) btn.textContent = newArchived ? '📥 Unarchive' : '📦 Archive';
+      }
     }
 
     async function addQuickNote(note) {
