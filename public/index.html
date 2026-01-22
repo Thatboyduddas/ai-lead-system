@@ -2553,22 +2553,26 @@
         showToast('Lead reply simulated!', 'success');
 
         // Reload to get new AI suggestion
+        const phoneToReload = selectedLead.phone;
         setTimeout(async () => {
           await loadLeads();
-          setTimeout(async () => {
-            await openLead(selectedLead.phone);
+          setTimeout(() => {
+            openLead(phoneToReload);
 
             // If auto-send is enabled, automatically send the response after a delay
             if (autoSendEnabled) {
               setTimeout(() => {
-                showToast('Auto-sending response...', 'success');
-                setTimeout(() => {
+                // Check that we have a message to send
+                const textarea = document.getElementById('editable-response');
+                const msg = textarea?.value?.trim() || selectedLead?.copyMessage;
+                if (msg) {
+                  showToast('Auto-sending...', 'success');
                   simulateSendMessage();
-                }, 800);
-              }, 500);
+                }
+              }, 1000);
             }
-          }, 300);
-        }, 500);
+          }, 500);
+        }, 800);
       } catch (err) {
         console.error('Simulation error:', err);
         showToast('Error simulating reply', 'error');
@@ -2830,8 +2834,25 @@
       if (!selectedLead || !tag) return;
       const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
 
-      // Initialize tags and add this one
+      // Initialize tags
       if (!selectedLead.tags) selectedLead.tags = [];
+
+      // Tag progression - remove previous stage when moving forward
+      const tagProgression = {
+        'Quoted': ['Age and gender'],  // Remove Age and gender when Quoted
+        'Appointment Set': ['Age and gender', 'Quoted', 'Follow up'],  // Remove earlier tags
+        'Sold': ['Age and gender', 'Quoted', 'Follow up', 'Appointment Set']  // Remove all earlier
+      };
+
+      // Remove superseded tags
+      if (tagProgression[tag]) {
+        tagProgression[tag].forEach(oldTag => {
+          const idx = selectedLead.tags.indexOf(oldTag);
+          if (idx > -1) selectedLead.tags.splice(idx, 1);
+        });
+      }
+
+      // Add new tag if not already present
       if (!selectedLead.tags.includes(tag)) {
         selectedLead.tags.push(tag);
       }
