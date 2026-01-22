@@ -744,15 +744,15 @@ function processMessage(message, context = {}) {
         category = 'question';
         priority = 'high';
         suggestedAction = '💬 Already quoted - push for call';
-        copyMessage = "Got it! Are you available for a quick 5-10 minute call with Jack to go over everything and get you the best rates?";
+        copyMessage = "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.";
       } else {
         const { adults, kids, youngestAge, ages } = intentResult.data;
         const quote = calculateQuote(adults, kids, youngestAge);
         category = 'ready_for_quote';
         priority = 'high';
-        suggestedAction = `💰 GOT INFO: ${adults} adult(s), ${kids} kid(s) - PUSH FOR CALL`;
-        copyMessage = `Got it! Are you available for a quick 5-10 minute call with Jack to go over the coverages? I can get you exact numbers for your situation.`;
-        // Don't set tagToApply here - tag applies AFTER user sends the quote
+        suggestedAction = `💰 SEND QUOTE: ${adults} adult(s), ${kids} kid(s), ages: ${ages.join(', ')}, bracket ${quote.bracket}`;
+        copyMessage = MESSAGES.quote(quote.lowPrice, quote.highPrice);
+        tagToApply = 'Quoted';
       }
       break;
       
