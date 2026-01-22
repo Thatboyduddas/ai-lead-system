@@ -1763,6 +1763,17 @@ app.delete('/api/leads/:phone', async (req, res) => {
 
 // ============ AUTO-SEND SETTINGS ============
 let autoSendEnabled = false;
+let syncEnabled = true; // Sync mode - controls whether extension syncs conversations
+
+app.get('/api/settings/sync', (req, res) => {
+  res.json({ enabled: syncEnabled });
+});
+
+app.post('/api/settings/sync', (req, res) => {
+  syncEnabled = req.body.enabled === true;
+  console.log('Sync mode:', syncEnabled ? 'ON' : 'OFF');
+  res.json({ enabled: syncEnabled });
+});
 
 app.get('/api/settings/auto-send', (req, res) => {
   res.json({ enabled: autoSendEnabled });

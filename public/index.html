@@ -2360,6 +2360,10 @@
           <button class="nav-tab" onclick="switchView('analytics')">Analytics</button>
         </div>
         <label class="toggle-container">
+          <input type="checkbox" id="sync-toggle" checked onchange="toggleSync()">
+          <span class="toggle-label">Sync</span>
+        </label>
+        <label class="toggle-container">
           <input type="checkbox" id="auto-send-toggle" onchange="toggleAutoSend()">
           <span class="toggle-label">Auto-Send</span>
         </label>
@@ -3477,6 +3481,19 @@
     }
 
     // ============ EXISTING FUNCTIONS ============
+    let syncEnabled = true;
+    function toggleSync() {
+      syncEnabled = document.getElementById('sync-toggle').checked;
+      localStorage.setItem('syncEnabled', syncEnabled);
+      console.log('Sync toggled:', syncEnabled);
+      showToast(syncEnabled ? 'Sync ON' : 'Sync OFF', syncEnabled ? 'success' : 'info');
+      fetch('/api/settings/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: syncEnabled })
+      });
+    }
+
     function toggleAutoSend() {
       autoSendEnabled = document.getElementById('auto-send-toggle').checked;
       localStorage.setItem('autoSendEnabled', autoSendEnabled);
@@ -3515,6 +3532,22 @@
     }
 
     window.addEventListener('load', () => {
+      // Load sync setting (defaults to true/on)
+      const savedSync = localStorage.getItem('syncEnabled');
+      if (savedSync === 'false') {
+        document.getElementById('sync-toggle').checked = false;
+        syncEnabled = false;
+      } else {
+        document.getElementById('sync-toggle').checked = true;
+        syncEnabled = true;
+      }
+      // Sync with server
+      fetch('/api/settings/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: syncEnabled })
+      });
+
       const saved = localStorage.getItem('autoSendEnabled');
       console.log('Loading autoSendEnabled from localStorage:', saved);
       if (saved === 'true') {

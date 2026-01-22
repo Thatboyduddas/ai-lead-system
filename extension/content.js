@@ -1,4 +1,4 @@
-// Duddas CRM v5.1 - Chrome Extension with Auto-Sync
+// Duddas CRM v6.0 - Chrome Extension with AI Assistant
 // Fixed for SalesGod's actual HTML structure
 
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
@@ -9,7 +9,34 @@ let pendingInProgress = false;
 let tagInProgress = false;
 let queueProcessing = false;
 let autoSendEnabled = false;
+let syncEnabled = true; // Sync mode - controlled from dashboard
 let lastConversationPhone = null;
+
+// Check sync setting from server
+async function checkSyncSetting() {
+  try {
+    const res = await fetch(DASHBOARD_URL + '/api/settings/sync');
+    const data = await res.json();
+    syncEnabled = data.enabled;
+    updateSyncIndicator();
+  } catch (err) {
+    // Default to enabled if can't reach server
+    syncEnabled = true;
+  }
+}
+
+// Update the sync indicator in the AI panel
+function updateSyncIndicator() {
+  const dot = document.getElementById('duddas-sync-dot');
+  if (dot) {
+    dot.style.background = syncEnabled ? '#22c55e' : '#ef4444';
+    dot.title = syncEnabled ? 'Sync ON' : 'Sync OFF';
+  }
+}
+
+// Check sync setting every 10 seconds
+setInterval(checkSyncSetting, 10000);
+checkSyncSetting(); // Initial check
 
 // ============================================
 // CONVERSATION DATA EXTRACTION (Fixed for SalesGod)
@@ -122,7 +149,13 @@ function extractConversationData() {
   };
 }
 
-function sendToDashboard(data, forceFullSync = false) {
+function sendToDashboard(data, forceFullSync = false, bypassSyncCheck = false) {
+  // Check if sync is enabled (unless bypassed by manual sync button)
+  if (!syncEnabled && !bypassSyncCheck) {
+    console.log('⏸️ Sync is OFF - skipping');
+    return;
+  }
+
   if (!data.phone || data.messages.length === 0) return;
   const lastMsg = data.lastMessage;
   if (!lastMsg) return;
@@ -751,12 +784,12 @@ function createStatusIndicator() {
     btn.onclick = () => sendAIQuery(btn.dataset.query);
   });
 
-  // Force Sync button
+  // Force Sync button (bypasses sync setting - manual sync always works)
   document.getElementById('duddas-force-sync').onclick = () => {
     const data = extractConversationData();
     if (data.phone && data.messages.length > 0) {
       lastFullSyncHash = '';
-      sendToDashboard(data, true);
+      sendToDashboard(data, true, true); // bypassSyncCheck = true
       showNotif(`✅ Synced ${data.messages.length} messages`, 'success');
     } else {
       showNotif('❌ No conversation open', 'error');
