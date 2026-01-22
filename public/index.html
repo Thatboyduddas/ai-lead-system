@@ -510,37 +510,108 @@
       font-weight: 600;
       border: 1px solid rgba(251, 191, 36, 0.25);
     }
-    .tag-dropdown-container {
-      margin-left: 8px;
+    /* Multi-Tag System */
+    .multi-tag-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: 12px;
     }
-    .tag-dropdown {
-      padding: 10px 14px;
-      padding-right: 36px;
-      background: linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(30, 41, 59, 0.9) 100%);
+    .selected-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.3), rgba(37, 99, 235, 0.1));
       border: 1px solid var(--blue-primary);
-      border-radius: var(--radius-md);
-      color: #fff;
-      font-size: 13px;
+      border-radius: 6px;
+      font-size: 12px;
       font-weight: 600;
-      cursor: pointer;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 12px center;
-      min-width: 160px;
-    }
-    .tag-dropdown:hover {
-      border-color: var(--gold-primary);
-      box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
-    }
-    .tag-dropdown:focus {
-      outline: none;
-      border-color: var(--gold-primary);
-    }
-    .tag-dropdown option {
-      background: var(--bg-secondary);
       color: #fff;
-      padding: 10px;
+    }
+    .tag-remove {
+      cursor: pointer;
+      opacity: 0.7;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .tag-remove:hover {
+      opacity: 1;
+    }
+    .tag-selector {
+      position: relative;
+    }
+    .tag-search {
+      padding: 8px 12px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 6px;
+      color: #fff;
+      font-size: 12px;
+      width: 120px;
+    }
+    .tag-search:focus {
+      outline: none;
+      border-color: var(--blue-primary);
+    }
+    .tag-dropdown-list {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      margin-top: 4px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      min-width: 200px;
+      max-height: 300px;
+      overflow-y: auto;
+      z-index: 100;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    .tag-dropdown-list.show {
+      display: block;
+    }
+    .tag-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-primary);
+      transition: background 0.15s;
+    }
+    .tag-option:hover {
+      background: rgba(37, 99, 235, 0.2);
+    }
+    .tag-option.selected {
+      background: rgba(37, 99, 235, 0.15);
+    }
+    .tag-option.hidden {
+      display: none;
+    }
+    .tag-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+    .tag-dot.red { background: #ef4444; }
+    .tag-dot.orange { background: #f97316; }
+    .tag-dot.yellow { background: #eab308; }
+    .tag-dot.green { background: #22c55e; }
+    .tag-dot.blue { background: #3b82f6; }
+    .tag-dot.purple { background: #a855f7; }
+    .tag-dot.cyan { background: #06b6d4; }
+    .tag-check {
+      margin-left: auto;
+      color: var(--green-primary);
     }
     .header-actions-right { display: flex; gap: 10px; }
 
@@ -2647,22 +2718,122 @@
       }
     }
 
+    // Multi-tag functions
+    function getTagColor(tag) {
+      const colors = {
+        'Age and gender': 'red',
+        'Quoted': 'blue',
+        'Follow up': 'yellow',
+        'Ghosted': 'cyan',
+        'Appointment Set': 'red',
+        'Called: Answered': 'blue',
+        'Called: No Answer': 'orange',
+        'Deadline': 'yellow',
+        'Sold': 'green',
+        'Dead': 'purple',
+        'Medicare Referral': 'green'
+      };
+      return colors[tag] || 'blue';
+    }
+
+    function showTagDropdown() {
+      document.getElementById('tag-dropdown-list').classList.add('show');
+    }
+
+    function hideTagDropdown() {
+      setTimeout(() => {
+        document.getElementById('tag-dropdown-list')?.classList.remove('show');
+      }, 200);
+    }
+
+    function filterTags(search) {
+      const options = document.querySelectorAll('.tag-option');
+      const s = search.toLowerCase();
+      options.forEach(opt => {
+        const text = opt.textContent.toLowerCase();
+        opt.classList.toggle('hidden', s && !text.includes(s));
+      });
+    }
+
+    async function toggleTag(tag) {
+      if (!selectedLead) return;
+
+      // Initialize tags array if needed
+      if (!selectedLead.tags) selectedLead.tags = [];
+
+      const index = selectedLead.tags.indexOf(tag);
+      if (index > -1) {
+        // Remove tag
+        selectedLead.tags.splice(index, 1);
+      } else {
+        // Add tag
+        selectedLead.tags.push(tag);
+      }
+
+      // Save to server
+      const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+      try {
+        await fetch(`/api/leads/${encodeURIComponent(phone)}/tags`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tags: selectedLead.tags })
+        });
+        showToast(`Tags updated`, 'success');
+        openLead(selectedLead.phone); // Refresh view
+      } catch (err) {
+        console.error('Error updating tags:', err);
+      }
+    }
+
+    async function removeTag(tag) {
+      if (!selectedLead || !selectedLead.tags) return;
+
+      const index = selectedLead.tags.indexOf(tag);
+      if (index > -1) {
+        selectedLead.tags.splice(index, 1);
+
+        const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+        try {
+          await fetch(`/api/leads/${encodeURIComponent(phone)}/tags`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tags: selectedLead.tags })
+          });
+          showToast(`Removed: ${tag}`, 'success');
+          openLead(selectedLead.phone);
+        } catch (err) {
+          console.error('Error removing tag:', err);
+        }
+      }
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.tag-selector')) {
+        document.getElementById('tag-dropdown-list')?.classList.remove('show');
+      }
+    });
+
     async function applyTagFromDropdown(tag) {
       if (!selectedLead || !tag) return;
       const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
 
+      // Initialize tags and add this one
+      if (!selectedLead.tags) selectedLead.tags = [];
+      if (!selectedLead.tags.includes(tag)) {
+        selectedLead.tags.push(tag);
+      }
+
       try {
-        await fetch(`/api/leads/${encodeURIComponent(phone)}/tag`, {
+        await fetch(`/api/leads/${encodeURIComponent(phone)}/tags`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tag })
+          body: JSON.stringify({ tags: selectedLead.tags })
         });
 
-        // Also update the currentTag locally
         selectedLead.currentTag = tag;
-        selectedLead.tagToApply = tag;
 
-        showToast(`Tag set: ${tag}`, 'success');
+        showToast(`Tag added: ${tag}`, 'success');
         loadLeads();
       } catch (err) {
         console.error('Error setting tag:', err);
@@ -2895,21 +3066,28 @@
               <h2>${lead.name || 'Unknown'}</h2>
               <p>${lead.phone}${lead.followUpDate ? ` | Follow up: ${lead.followUpDate}` : ''}</p>
             </div>
-            <div class="tag-dropdown-container">
-              <select class="tag-dropdown" id="tag-dropdown" onchange="applyTagFromDropdown(this.value)">
-                <option value="" ${!lead.tagToApply && !lead.currentTag ? 'selected' : ''}>Select Tag...</option>
-                <option value="Age and gender" ${lead.tagToApply === 'Age and gender' || lead.currentTag === 'Age and gender' ? 'selected' : ''}>Age and gender</option>
-                <option value="Quoted" ${lead.tagToApply === 'Quoted' || lead.currentTag === 'Quoted' ? 'selected' : ''}>Quoted</option>
-                <option value="Follow up" ${lead.tagToApply === 'Follow up' || lead.currentTag === 'Follow up' ? 'selected' : ''}>Follow up</option>
-                <option value="Ghosted" ${lead.tagToApply === 'Ghosted' || lead.currentTag === 'Ghosted' ? 'selected' : ''}>Ghosted</option>
-                <option value="Appointment Set" ${lead.tagToApply === 'Appointment Set' || lead.currentTag === 'Appointment Set' ? 'selected' : ''}>Appointment Set</option>
-                <option value="Called: Answered" ${lead.tagToApply === 'Called: Answered' || lead.currentTag === 'Called: Answered' ? 'selected' : ''}>Called: Answered</option>
-                <option value="Called: No Answer" ${lead.tagToApply === 'Called: No Answer' || lead.currentTag === 'Called: No Answer' ? 'selected' : ''}>Called: No Answer</option>
-                <option value="Deadline" ${lead.tagToApply === 'Deadline' || lead.currentTag === 'Deadline' ? 'selected' : ''}>Deadline</option>
-                <option value="Sold" ${lead.tagToApply === 'Sold' || lead.currentTag === 'Sold' ? 'selected' : ''}>Sold</option>
-                <option value="Dead" ${lead.tagToApply === 'Dead' || lead.currentTag === 'Dead' ? 'selected' : ''}>Dead</option>
-                <option value="Medicare Referral" ${lead.tagToApply === 'Medicare Referral' || lead.currentTag === 'Medicare Referral' ? 'selected' : ''}>Medicare Referral</option>
-              </select>
+            </div>
+          </div>
+          <div class="multi-tag-container">
+            <div class="selected-tags" id="selected-tags">
+              ${(lead.tags || []).map(tag => `
+                <span class="tag-chip" data-tag="${tag}">
+                  ${tag}
+                  <span class="tag-remove" onclick="removeTag('${tag}')">&times;</span>
+                </span>
+              `).join('')}
+            </div>
+            <div class="tag-selector">
+              <input type="text" class="tag-search" id="tag-search" placeholder="Add tag..." onfocus="showTagDropdown()" oninput="filterTags(this.value)">
+              <div class="tag-dropdown-list" id="tag-dropdown-list">
+                ${['Age and gender', 'Quoted', 'Follow up', 'Ghosted', 'Appointment Set', 'Called: Answered', 'Called: No Answer', 'Deadline', 'Sold', 'Dead', 'Medicare Referral'].map(tag => `
+                  <div class="tag-option ${(lead.tags || []).includes(tag) ? 'selected' : ''}" onclick="toggleTag('${tag}')">
+                    <span class="tag-dot ${getTagColor(tag)}"></span>
+                    ${tag}
+                    ${(lead.tags || []).includes(tag) ? '<span class="tag-check">✓</span>' : ''}
+                  </div>
+                `).join('')}
+              </div>
             </div>
           </div>
           <div class="header-actions-right">

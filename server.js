@@ -893,7 +893,7 @@ app.get('/api/leads/:phone/tag', async (req, res) => {
   }
 });
 
-// Manually set a tag to apply (from dashboard)
+// Manually set a tag to apply (from dashboard) - single tag
 app.post('/api/leads/:phone/tag', async (req, res) => {
   const phone = req.params.phone.replace(/[^0-9+]/g, '');
   const { tag } = req.body;
@@ -901,14 +901,38 @@ app.post('/api/leads/:phone/tag', async (req, res) => {
   try {
     const lead = await getLead(phone);
     if (lead) {
-      // Replace the current tag - progression not stacking
       lead.currentTag = tag;
       lead.tagToApply = tag;
       lead.tagApplied = false;
+      // Also add to tags array
+      if (!lead.tags) lead.tags = [];
+      if (!lead.tags.includes(tag)) lead.tags.push(tag);
       lead.tagHistory = lead.tagHistory || [];
       lead.tagHistory.push({ tag, timestamp: new Date().toISOString() });
       await saveLead(phone, lead);
-      res.json({ success: true, tagToApply: tag, currentTag: tag });
+      res.json({ success: true, tagToApply: tag, currentTag: tag, tags: lead.tags });
+    } else {
+      res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Multi-tag support - set multiple tags
+app.post('/api/leads/:phone/tags', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+  const { tags } = req.body;
+
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      lead.tags = tags || [];
+      // Set currentTag to the last tag in the array (most recent)
+      lead.currentTag = tags && tags.length > 0 ? tags[tags.length - 1] : null;
+      lead.tagToApply = lead.currentTag;
+      await saveLead(phone, lead);
+      res.json({ success: true, tags: lead.tags });
     } else {
       res.status(404).json({ success: false, error: 'Lead not found' });
     }
