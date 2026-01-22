@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Duddas CRM">
+  <meta name="theme-color" content="#070b14">
   <title>Duddas CRM v4.0</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -1509,6 +1513,290 @@
     }
     button, input, a {
       -webkit-font-smoothing: antialiased;
+    }
+
+    /* ============ MOBILE RESPONSIVE ============ */
+    @media (max-width: 768px) {
+      /* Header */
+      .header-content {
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px 16px;
+      }
+      .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+      }
+      .nav-tabs {
+        width: 100%;
+        justify-content: center;
+      }
+      .nav-tab {
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+      .toggle-container {
+        padding: 6px 10px;
+      }
+      .toggle-label {
+        font-size: 11px;
+      }
+      .btn {
+        padding: 8px 12px;
+        font-size: 12px;
+      }
+
+      /* Main Layout - Stack vertically on mobile */
+      .main-layout {
+        flex-direction: column;
+        height: auto;
+        min-height: calc(100vh - 120px);
+      }
+
+      /* Sidebar becomes top section */
+      .leads-sidebar {
+        width: 100%;
+        max-width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--glass-border);
+        max-height: 45vh;
+      }
+
+      /* Lead content takes rest */
+      .lead-content {
+        width: 100%;
+        min-height: 55vh;
+      }
+
+      /* Stats bar */
+      .stats-bar {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .stat-item {
+        font-size: 10px;
+        padding: 4px 8px;
+      }
+
+      /* Filter tabs scroll horizontally */
+      .filter-tabs {
+        overflow-x: auto;
+        padding-bottom: 8px;
+        gap: 6px;
+      }
+      .filter-tab {
+        padding: 6px 10px;
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .tag-filters {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        gap: 6px;
+        padding-bottom: 8px;
+      }
+      .tag-filter {
+        padding: 4px 8px;
+        font-size: 10px;
+        white-space: nowrap;
+      }
+
+      /* Lead cards */
+      .lead-card {
+        padding: 12px;
+      }
+      .lead-name {
+        font-size: 14px;
+      }
+      .lead-phone {
+        font-size: 11px;
+      }
+      .lead-preview {
+        font-size: 12px;
+      }
+
+      /* Lead header */
+      .lead-header {
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+      }
+      .lead-header-left {
+        width: 100%;
+      }
+      .lead-header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .lead-header-actions .btn {
+        flex: 1;
+        min-width: 70px;
+        padding: 10px 8px;
+        font-size: 11px;
+      }
+
+      /* AI Bar */
+      .ai-bar {
+        padding: 12px 16px;
+        flex-wrap: wrap;
+      }
+      .ai-bar-text {
+        font-size: 12px;
+      }
+
+      /* Messages */
+      .messages-container {
+        min-height: 200px;
+        max-height: 300px;
+        padding: 16px;
+      }
+      .message-bubble {
+        max-width: 85%;
+        padding: 12px 14px;
+        font-size: 13px;
+      }
+
+      /* Action area */
+      .action-area {
+        padding: 16px;
+      }
+      .copy-suggestion {
+        padding: 14px;
+      }
+      .copy-suggestion-text {
+        font-size: 13px;
+      }
+      .send-buttons {
+        flex-direction: column;
+        gap: 10px;
+      }
+      .copy-btn, .send-btn {
+        width: 100%;
+        padding: 14px;
+      }
+
+      /* AI Chat */
+      .ai-chat-input-row {
+        flex-direction: column;
+        gap: 10px;
+      }
+      .ai-chat-input-row input {
+        width: 100%;
+      }
+      .ai-chat-btn {
+        width: 100%;
+      }
+      .ai-quick-prompts {
+        flex-wrap: wrap;
+      }
+      .ai-quick-prompts button {
+        flex: 1;
+        min-width: 70px;
+      }
+
+      /* SalesGod Tags */
+      .salesgod-tags {
+        padding: 12px;
+      }
+      .tag-buttons {
+        gap: 6px;
+      }
+      .tag-btn {
+        padding: 8px 10px;
+        font-size: 10px;
+      }
+
+      /* Quick actions */
+      .quick-actions {
+        flex-wrap: wrap;
+      }
+      .action-btn {
+        flex: 1;
+        min-width: 60px;
+        padding: 10px 8px;
+        font-size: 11px;
+      }
+
+      /* Calendar view */
+      .calendar-content {
+        padding: 16px;
+      }
+      .calendar-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      /* Analytics view */
+      .analytics-content {
+        padding: 16px;
+      }
+      .analytics-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .stat-card {
+        padding: 16px;
+      }
+      .stat-value {
+        font-size: 28px;
+      }
+      .category-grid {
+        grid-template-columns: 1fr;
+      }
+      .funnel-section {
+        grid-template-columns: 1fr;
+      }
+
+      /* Modal */
+      .modal-content {
+        margin: 16px;
+        padding: 20px;
+        max-height: 90vh;
+      }
+
+      /* No lead selected */
+      .no-lead-selected {
+        padding: 30px;
+      }
+      .no-lead-icon {
+        font-size: 48px;
+      }
+    }
+
+    /* Extra small screens */
+    @media (max-width: 400px) {
+      .header-content {
+        padding: 10px 12px;
+      }
+      .logo {
+        font-size: 14px;
+      }
+      .nav-tab {
+        padding: 6px 8px;
+        font-size: 11px;
+      }
+      .leads-sidebar {
+        max-height: 40vh;
+      }
+      .lead-header-actions .btn {
+        font-size: 10px;
+        padding: 8px 6px;
+      }
+      .analytics-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* PWA / App-like feel */
+    @media (display-mode: standalone) {
+      body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
     }
   </style>
 </head>
