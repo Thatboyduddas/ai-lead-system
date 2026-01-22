@@ -2340,39 +2340,26 @@
       <div class="sidebar-header">
         <input type="text" class="search-input" placeholder="Search leads..." id="search" oninput="renderLeads()">
       </div>
-      <div class="followup-alert" id="followup-alert" onclick="switchView('calendar')" style="display:none;">
-        <span>Needs follow-up</span>
-        <span class="count" id="followup-count">0</span>
-      </div>
-      <div class="stats-bar">
-        <div class="stat-item">Hot <span class="count" id="stat-hot">0</span></div>
-        <div class="stat-item">Quote <span class="count" id="stat-quote">0</span></div>
-        <div class="stat-item">Soft <span class="count" id="stat-soft">0</span></div>
-        <div class="stat-item">Later <span class="count" id="stat-scheduled">0</span></div>
-        <div class="stat-item">Q <span class="count" id="stat-question">0</span></div>
-        <div class="stat-item">65+ <span class="count" id="stat-medicare">0</span></div>
-      </div>
-      <div class="filter-tabs">
+
+      <!-- Main Tabs: Unread, Recent, Archived, All -->
+      <div class="filter-tabs" style="justify-content:center;gap:4px;padding:12px 16px;">
         <button class="filter-tab" data-filter="unread" onclick="setFilter('unread')">Unread</button>
         <button class="filter-tab active" data-filter="recent" onclick="setFilter('recent')">Recent</button>
         <button class="filter-tab" data-filter="archived" onclick="setFilter('archived')">Archived</button>
         <button class="filter-tab" data-filter="all" onclick="setFilter('all')">All</button>
-        <button class="filter-tab" data-filter="hot" onclick="setFilter('hot')">Hot</button>
-        <button class="filter-tab" data-filter="ready_for_quote" onclick="setFilter('ready_for_quote')">Quote</button>
-        <button class="filter-tab" data-filter="soft_positive" onclick="setFilter('soft_positive')">Soft</button>
-        <button class="filter-tab" data-filter="scheduled" onclick="setFilter('scheduled')">Later</button>
-        <button class="filter-tab" data-filter="question" onclick="setFilter('question')">Questions</button>
-        <button class="filter-tab" data-filter="medicare" onclick="setFilter('medicare')">Medicare</button>
-        <button class="filter-tab" data-filter="review" onclick="setFilter('review')">Review</button>
-        <button class="filter-tab" data-filter="handled" onclick="setFilter('handled')">Done</button>
       </div>
-      <div class="tag-filters">
-        <button class="tag-filter" data-filter="tag:Age and gender" onclick="setFilter('tag:Age and gender')">Age/Gender</button>
-        <button class="tag-filter" data-filter="tag:Quoted" onclick="setFilter('tag:Quoted')">Quoted</button>
-        <button class="tag-filter" data-filter="tag:Follow up" onclick="setFilter('tag:Follow up')">Follow up</button>
-        <button class="tag-filter" data-filter="tag:Ghosted" onclick="setFilter('tag:Ghosted')">Ghosted</button>
-        <button class="tag-filter" data-filter="tag:Sold" onclick="setFilter('tag:Sold')">Sold</button>
+
+      <!-- Category Quick Filters - Compact Pills -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;border-bottom:1px solid var(--border-subtle);">
+        <span class="category-pill" data-filter="hot" onclick="setFilter('hot')" style="cursor:pointer;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);">🔥 <span id="stat-hot">0</span></span>
+        <span class="category-pill" data-filter="ready_for_quote" onclick="setFilter('ready_for_quote')" style="cursor:pointer;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(251,191,36,0.15);color:#fbbf24;border:1px solid rgba(251,191,36,0.3);">💰 <span id="stat-quote">0</span></span>
+        <span class="category-pill" data-filter="soft_positive" onclick="setFilter('soft_positive')" style="cursor:pointer;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(34,197,94,0.15);color:#4ade80;border:1px solid rgba(34,197,94,0.3);">👍 <span id="stat-soft">0</span></span>
+        <span class="category-pill" data-filter="scheduled" onclick="setFilter('scheduled')" style="cursor:pointer;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);">📅 <span id="stat-scheduled">0</span></span>
+        <span class="category-pill" data-filter="question" onclick="setFilter('question')" style="cursor:pointer;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(168,85,247,0.15);color:#c084fc;border:1px solid rgba(168,85,247,0.3);">❓ <span id="stat-question">0</span></span>
+        <span class="category-pill" data-filter="medicare" onclick="setFilter('medicare')" style="cursor:pointer;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(249,115,22,0.15);color:#fb923c;border:1px solid rgba(249,115,22,0.3);">65+</span>
+        <span class="category-pill" data-filter="review" onclick="setFilter('review')" style="cursor:pointer;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;background:rgba(113,113,122,0.15);color:#a1a1aa;border:1px solid rgba(113,113,122,0.3);">👀</span>
       </div>
+
       <div class="leads-list" id="leads-list"></div>
     </div>
 
@@ -3573,20 +3560,34 @@
     }
 
     function updateStats() {
-      const active = leads.filter(l => l.status !== 'handled');
-      document.getElementById('stat-hot').textContent = active.filter(l => l.category === 'hot').length;
-      document.getElementById('stat-quote').textContent = active.filter(l => l.category === 'ready_for_quote').length;
-      document.getElementById('stat-soft').textContent = active.filter(l => l.category === 'soft_positive').length;
-      document.getElementById('stat-scheduled').textContent = active.filter(l => l.category === 'scheduled').length;
-      document.getElementById('stat-question').textContent = active.filter(l => l.category === 'question').length;
-      document.getElementById('stat-medicare').textContent = active.filter(l => l.category === 'medicare' || l.isMedicare).length;
+      const active = leads.filter(l => l.status !== 'handled' && !l.blocked);
+      const setStatSafe = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      };
+      setStatSafe('stat-hot', active.filter(l => l.category === 'hot').length);
+      setStatSafe('stat-quote', active.filter(l => l.category === 'ready_for_quote').length);
+      setStatSafe('stat-soft', active.filter(l => l.category === 'soft_positive').length);
+      setStatSafe('stat-scheduled', active.filter(l => l.category === 'scheduled').length);
+      setStatSafe('stat-question', active.filter(l => l.category === 'question').length);
+      setStatSafe('stat-medicare', active.filter(l => l.category === 'medicare' || l.isMedicare).length);
     }
 
     function setFilter(filter) {
       currentFilter = filter;
-      document.querySelectorAll('.filter-tab, .tag-filter').forEach(b => b.classList.remove('active'));
-      const btn = document.querySelector(`[data-filter="${filter}"]`);
-      if (btn) btn.classList.add('active');
+      // Remove active from all filters
+      document.querySelectorAll('.filter-tab, .tag-filter, .category-pill').forEach(b => {
+        b.classList.remove('active');
+        b.style.transform = '';
+      });
+      // Add active to matching filter
+      const btn = document.querySelector(`.filter-tab[data-filter="${filter}"], .category-pill[data-filter="${filter}"]`);
+      if (btn) {
+        btn.classList.add('active');
+        if (btn.classList.contains('category-pill')) {
+          btn.style.transform = 'scale(1.1)';
+        }
+      }
       renderLeads();
     }
 
