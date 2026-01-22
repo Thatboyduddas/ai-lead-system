@@ -709,9 +709,16 @@ app.get('/api/test', async (req, res) => {
 });
 
 app.post('/api/simulate', async (req, res) => {
-  // Focused test cases: Yes responses and Age/Gender responses only
-  const testMessages = [
-    // YES / INTERESTED responses - should trigger "Age and gender" tag
+  // Drip message variations (what YOU send first)
+  const dripMessages = [
+    "Hey, it's Mia with Blue Cross. We have new health insurance designed for individuals, families, & groups. May I send an estimate?",
+    "Hi, this is Mia with Blue Cross. We have new health plans designed for individuals, families, & groups. Can I text a quote?",
+    "Hello, it's Mia with Blue Cross. We have new health coverage designed for individuals, families, & groups. Ok if I share an estimate?"
+  ];
+
+  // Lead responses (what THEY say back)
+  const leadResponses = [
+    // YES responses - lead wants a quote
     { msg: "Yes", name: "Quick Yes" },
     { msg: "Yeah I'm interested", name: "Interested" },
     { msg: "Sure send me info", name: "Sure Thing" },
@@ -719,40 +726,53 @@ app.post('/api/simulate', async (req, res) => {
     { msg: "Yep", name: "Yep" },
     { msg: "Ok sounds good", name: "Sounds Good" },
     { msg: "How much is it?", name: "Price Ask" },
-    // AGE/GENDER responses - should trigger quote + "Quoted" tag
-    { msg: "35 male", name: "Single Male" },
-    { msg: "42 female", name: "Single Female" },
-    { msg: "28", name: "Just Age" },
-    { msg: "45 m", name: "Short Format" },
-    { msg: "52 female just me", name: "Just Me" },
-    { msg: "38 male and 36 female", name: "Couple" },
-    { msg: "41 male 39 female 2 kids", name: "Family" },
-    { msg: "55 f and my husband is 58", name: "Spouse Mention" }
+    { msg: "Yeah", name: "Yeah" },
+    { msg: "Sure", name: "Sure" }
   ];
-  
-  const test = testMessages[Math.floor(Math.random() * testMessages.length)];
+
+  const dripMsg = dripMessages[Math.floor(Math.random() * dripMessages.length)];
+  const leadResponse = leadResponses[Math.floor(Math.random() * leadResponses.length)];
   const phone = `+1555${Math.floor(Math.random()*9000000+1000000)}`;
   const cleanPhone = phone.replace(/[^0-9+]/g, '');
-  const analysis = processMessage(test.msg);
-  
+
+  // Analyze the lead's response
+  const analysis = processMessage(leadResponse.msg);
+
+  // Create timestamps - drip first, then lead response
+  const dripTime = new Date(Date.now() - 60000); // 1 min ago
+  const responseTime = new Date(); // now
+
   const lead = {
     id: Date.now(),
     phone: phone,
-    name: test.name,
-    messages: [{ text: test.msg, timestamp: new Date().toISOString(), isOutgoing: false, analysis }],
+    name: leadResponse.name,
+    messages: [
+      // First: YOUR drip message (outgoing)
+      {
+        text: dripMsg,
+        timestamp: dripTime.toISOString(),
+        isOutgoing: true
+      },
+      // Then: LEAD's response (incoming)
+      {
+        text: leadResponse.msg,
+        timestamp: responseTime.toISOString(),
+        isOutgoing: false,
+        analysis
+      }
+    ],
     category: analysis.category,
     priority: analysis.priority,
     suggestedAction: analysis.suggestedAction,
     copyMessage: analysis.copyMessage,
-    tagToApply: analysis.tagToApply,
     parsedData: analysis.parsedData,
     status: 'active',
     notes: [],
     actions: [],
-    createdAt: new Date().toISOString(),
-    lastMessageAt: new Date().toISOString()
+    createdAt: dripTime.toISOString(),
+    lastMessageAt: responseTime.toISOString()
   };
-  
+
   try {
     await saveLead(cleanPhone, lead);
     res.json({ success: true, lead });
