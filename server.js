@@ -345,9 +345,100 @@ function detectIntent(message, context = {}) {
 }
 
 // ============ CALENDLY INTEGRATION ============
-// For future AI booking - will use Calendly API
+const CALENDLY_API_KEY = process.env.CALENDLY_API_KEY;
 const CALENDLY_URL = 'https://calendly.com/esteshealthsolutions/';
-const CALENDLY_BOOKING_LINK = 'https://calendly.com/esteshealthsolutions/';
+const CALENDLY_API_BASE = 'https://api.calendly.com';
+
+// Get current user info from Calendly
+async function getCalendlyUser() {
+  if (!CALENDLY_API_KEY) return null;
+  try {
+    const res = await fetch(`${CALENDLY_API_BASE}/users/me`, {
+      headers: { 'Authorization': `Bearer ${CALENDLY_API_KEY}` }
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Calendly API error:', err);
+    return null;
+  }
+}
+
+// Get available event types
+async function getCalendlyEventTypes() {
+  if (!CALENDLY_API_KEY) return [];
+  try {
+    const user = await getCalendlyUser();
+    if (!user?.resource?.uri) return [];
+
+    const res = await fetch(`${CALENDLY_API_BASE}/event_types?user=${encodeURIComponent(user.resource.uri)}`, {
+      headers: { 'Authorization': `Bearer ${CALENDLY_API_KEY}` }
+    });
+    const data = await res.json();
+    return data.collection || [];
+  } catch (err) {
+    console.error('Calendly event types error:', err);
+    return [];
+  }
+}
+
+// Get available times for an event type
+async function getCalendlyAvailability(eventTypeUri, startDate, endDate) {
+  if (!CALENDLY_API_KEY) return [];
+  try {
+    const res = await fetch(`${CALENDLY_API_BASE}/event_type_available_times?event_type=${encodeURIComponent(eventTypeUri)}&start_time=${startDate}&end_time=${endDate}`, {
+      headers: { 'Authorization': `Bearer ${CALENDLY_API_KEY}` }
+    });
+    const data = await res.json();
+    return data.collection || [];
+  } catch (err) {
+    console.error('Calendly availability error:', err);
+    return [];
+  }
+}
+
+// API endpoint to get Calendly availability
+app.get('/api/calendly/availability', async (req, res) => {
+  if (!CALENDLY_API_KEY) {
+    return res.json({ success: false, error: 'Calendly API key not configured' });
+  }
+
+  try {
+    const eventTypes = await getCalendlyEventTypes();
+    if (eventTypes.length === 0) {
+      return res.json({ success: false, error: 'No event types found' });
+    }
+
+    // Get availability for the first event type (next 7 days)
+    const now = new Date();
+    const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const availability = await getCalendlyAvailability(
+      eventTypes[0].uri,
+      now.toISOString(),
+      nextWeek.toISOString()
+    );
+
+    res.json({
+      success: true,
+      eventType: eventTypes[0],
+      availability: availability.slice(0, 10) // First 10 available slots
+    });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+// API endpoint to check Calendly connection
+app.get('/api/calendly/status', async (req, res) => {
+  if (!CALENDLY_API_KEY) {
+    return res.json({ connected: false, error: 'API key not set' });
+  }
+  const user = await getCalendlyUser();
+  if (user?.resource) {
+    res.json({ connected: true, user: user.resource.name, email: user.resource.email });
+  } else {
+    res.json({ connected: false, error: 'Invalid API key' });
+  }
+});
 
 // ============ TIME SLOT GENERATION (EST) ============
 function getSchedulingMessage() {
