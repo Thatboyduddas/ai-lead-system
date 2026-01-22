@@ -2553,9 +2553,21 @@
         showToast('Lead reply simulated!', 'success');
 
         // Reload to get new AI suggestion
-        setTimeout(() => {
-          loadLeads();
-          setTimeout(() => openLead(selectedLead.phone), 300);
+        setTimeout(async () => {
+          await loadLeads();
+          setTimeout(async () => {
+            await openLead(selectedLead.phone);
+
+            // If auto-send is enabled, automatically send the response after a delay
+            if (autoSendEnabled) {
+              setTimeout(() => {
+                showToast('Auto-sending response...', 'success');
+                setTimeout(() => {
+                  simulateSendMessage();
+                }, 800);
+              }, 500);
+            }
+          }, 300);
         }, 500);
       } catch (err) {
         console.error('Simulation error:', err);
