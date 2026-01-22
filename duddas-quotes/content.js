@@ -1,57 +1,46 @@
-// Duddas Quotes v1.0 - Simple Quote Tool
-// MAGA Theme - Focus on quoting clients
+// Duddas Quotes v2.0 - Simple Quote Calculator
+// No SalesGod integration - just quick quotes
 
-const VERSION = "1.0.4";
-const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
-
-let currentPhone = null;
-let currentName = null;
+const VERSION = "2.0.0";
 
 // ============================================
 // QUOTE CALCULATION
 // ============================================
 
-function calculateQuote(adults, kids, youngestAge) {
-  let bracket, lowPrice, highPrice;
+function calculateQuote(youngestAge, adults, kids) {
+  let lowPrice, highPrice;
 
+  // Base price by age of youngest adult
   if (youngestAge < 18) {
-    bracket = 'child';
     lowPrice = 89;
     highPrice = 189;
   } else if (youngestAge <= 29) {
-    bracket = 'young';
     lowPrice = 189;
     highPrice = 389;
   } else if (youngestAge <= 39) {
-    bracket = '30s';
     lowPrice = 219;
     highPrice = 449;
   } else if (youngestAge <= 49) {
-    bracket = '40s';
     lowPrice = 249;
     highPrice = 519;
   } else if (youngestAge <= 54) {
-    bracket = '50-54';
     lowPrice = 289;
     highPrice = 619;
   } else if (youngestAge <= 59) {
-    bracket = '55-59';
     lowPrice = 349;
     highPrice = 719;
   } else if (youngestAge <= 64) {
-    bracket = '60-64';
     lowPrice = 419;
     highPrice = 849;
   } else {
-    bracket = 'medicare';
-    lowPrice = 0;
-    highPrice = 0;
+    // Medicare age
+    return { isMedicare: true };
   }
 
-  // Add for additional adults
+  // Add for spouse (second adult)
   if (adults > 1) {
-    lowPrice += (adults - 1) * Math.round(lowPrice * 0.9);
-    highPrice += (adults - 1) * Math.round(highPrice * 0.9);
+    lowPrice += Math.round(lowPrice * 0.9);
+    highPrice += Math.round(highPrice * 0.9);
   }
 
   // Add for kids
@@ -60,7 +49,7 @@ function calculateQuote(adults, kids, youngestAge) {
     highPrice += kids * 189;
   }
 
-  return { bracket, lowPrice, highPrice };
+  return { lowPrice, highPrice, isMedicare: false };
 }
 
 function generateQuoteMessage(lowPrice, highPrice) {
@@ -68,191 +57,19 @@ function generateQuoteMessage(lowPrice, highPrice) {
 }
 
 // ============================================
-// MESSAGE ANALYSIS
+// UI PANEL
 // ============================================
 
-function detectAgeGender(message) {
-  const text = message.toLowerCase();
-  const ages = [];
-  let adults = 0;
-  let kids = 0;
-
-  // Pattern: "30 male", "45 female", "32m", "28f", "I'm 35", "age 42"
-  const agePatterns = [
-    /(\d{1,2})\s*(years?\s*old|y\/?o|male|female|m|f)\b/gi,
-    /\b(i'?m|i am|age)\s*(\d{1,2})\b/gi,
-    /\b(\d{1,2})\s*(and|&)\s*(\d{1,2})\b/gi,
-    /\bjust\s*me\s*.*?(\d{1,2})/gi
-  ];
-
-  // Extract ages
-  for (const pattern of agePatterns) {
-    let match;
-    while ((match = pattern.exec(text)) !== null) {
-      const age = parseInt(match[1]) || parseInt(match[2]) || parseInt(match[3]);
-      if (age >= 1 && age <= 99 && !ages.includes(age)) {
-        ages.push(age);
-      }
-    }
-  }
-
-  // Also check for simple number patterns like "30 male"
-  const simplePattern = /\b(\d{1,2})\s*(male|female|m|f)?\b/gi;
-  let match;
-  while ((match = simplePattern.exec(text)) !== null) {
-    const age = parseInt(match[1]);
-    if (age >= 18 && age <= 85 && !ages.includes(age)) {
-      ages.push(age);
-    }
-  }
-
-  // Count adults vs kids
-  for (const age of ages) {
-    if (age >= 18) {
-      adults++;
-    } else {
-      kids++;
-    }
-  }
-
-  const youngestAge = ages.length > 0 ? Math.min(...ages) : null;
-
-  return {
-    hasAgeInfo: ages.length > 0,
-    ages,
-    adults: adults || 1,
-    kids,
-    youngestAge
-  };
-}
-
-function analyzeMessage(message, allMessages = []) {
-  const text = message.toLowerCase();
-
-  // Check if already quoted (look for outgoing messages with price patterns)
-  const alreadyQuoted = allMessages.some(m =>
-    m.isOutgoing && /\$\d{2,3}-\$\d{2,4}\/month|\$\d{3}-\$\d{3,4}/.test(m.text)
-  );
-
-  // If already quoted, push for call
-  if (alreadyQuoted) {
-    return {
-      type: 'already_quoted',
-      suggestion: "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.",
-      info: 'Already quoted - push for call'
-    };
-  }
-
-  // Check for age/gender info
-  const ageInfo = detectAgeGender(message);
-  if (ageInfo.hasAgeInfo && ageInfo.youngestAge && ageInfo.youngestAge < 65) {
-    const quote = calculateQuote(ageInfo.adults, ageInfo.kids, ageInfo.youngestAge);
-    return {
-      type: 'quote',
-      suggestion: generateQuoteMessage(quote.lowPrice, quote.highPrice),
-      info: `${ageInfo.adults} adult(s), ${ageInfo.kids} kid(s), ages: ${ageInfo.ages.join(', ')}`
-    };
-  }
-
-  // Check for Medicare (65+)
-  if (ageInfo.hasAgeInfo && ageInfo.youngestAge && ageInfo.youngestAge >= 65) {
-    return {
-      type: 'medicare',
-      suggestion: `We don't specialize in Medicare, but here is our referral. Her name is Faith, she's been doing this for over a decade. Text her here +1 (352) 900-3966 or get on her calendar. PLEASE mention Jack referred you!`,
-      info: 'Medicare age detected'
-    };
-  }
-
-  // Check for interest signals - ask for age to generate quote
-  const interestWords = ['yes', 'sure', 'ok', 'okay', 'interested', 'tell me more', 'how much', 'quote', 'price', 'sounds good', 'go ahead'];
-  if (interestWords.some(w => text.includes(w))) {
-    return {
-      type: 'interest',
-      suggestion: "For the private insurance, all I need is your age and I can get you an accurate quote!",
-      info: 'Interest detected - need age'
-    };
-  }
-
-  // Default - ask for age
-  return {
-    type: 'default',
-    suggestion: "For the private insurance, all I need is your age and I can get you an accurate quote!",
-    info: 'Need age for quote'
-  };
-}
-
-// ============================================
-// CONVERSATION EXTRACTION
-// ============================================
-
-function extractConversationData() {
-  let contactName = "";
-  let phone = "";
-  let allMessages = [];
-
-  const text = document.body.innerText;
-  const lines = text.split('\n').filter(l => l.trim());
-
-  // Find phone number in the conversation header
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].match(/^\+1\s?\d{3}-\d{3}-\d{4}/) || lines[i].match(/^\+1\d{10}/)) {
-      phone = lines[i];
-      if (i > 0) contactName = lines[i - 1];
-      break;
-    }
-  }
-
-  if (phone) currentPhone = phone.replace(/[^0-9+]/g, '');
-  if (contactName) currentName = contactName;
-
-  // Extract messages
-  const messageElements = document.querySelectorAll('li.chat-list, li[class*="chat-list"]');
-  messageElements.forEach(li => {
-    const classList = li.className || '';
-    const isOutgoing = classList.includes('right');
-    const isIncoming = classList.includes('left');
-
-    const messageDiv = li.querySelector('.message, [class*="message"], .flex-column');
-    let msgText = messageDiv ? messageDiv.innerText?.trim() : li.innerText?.trim();
-
-    // Clean up
-    msgText = msgText
-      .replace(/\d{1,2}\/\d{1,2}\/\d{4},?\s*\d{1,2}:\d{2}(:\d{2})?\s*[AP]M/gi, '')
-      .replace(/^\s*sent\s*$/i, '')
-      .replace(/^\s*delivered\s*$/i, '')
-      .trim();
-
-    if (msgText && msgText.length > 0 && msgText.length < 2000 && (isOutgoing || isIncoming)) {
-      allMessages.push({
-        text: msgText,
-        isOutgoing: isOutgoing
-      });
-    }
-  });
-
-  return {
-    contactName,
-    phone,
-    messages: allMessages,
-    lastMessage: allMessages[allMessages.length - 1] || null,
-    lastIncoming: [...allMessages].reverse().find(m => !m.isOutgoing) || null
-  };
-}
-
-// ============================================
-// AI PANEL UI
-// ============================================
-
-function createAIPanel() {
+function createQuotePanel() {
   const existing = document.getElementById('duddas-quotes');
   if (existing) existing.remove();
 
-  // Load saved position (with bounds checking)
+  // Load saved position
   const savedPos = JSON.parse(localStorage.getItem('duddas-quotes-pos') || 'null');
   let startLeft = savedPos?.left || '20px';
   let startBottom = savedPos?.bottom || '20px';
 
-  // Reset if position is out of bounds
+  // Bounds check
   const leftNum = parseInt(startLeft);
   const bottomNum = parseInt(startBottom);
   if (leftNum < 0 || leftNum > window.innerWidth - 100 || bottomNum < 0 || bottomNum > window.innerHeight - 100) {
@@ -274,14 +91,14 @@ function createAIPanel() {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 13px;
     z-index: 99998;
-    width: 340px;
+    width: 320px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     border: 1px solid rgba(251,191,36,0.3);
     overflow: hidden;
   `;
 
   panel.innerHTML = `
-    <!-- Header (draggable) - MAGA Theme -->
+    <!-- Header - MAGA Theme -->
     <div id="duddas-header" style="background:linear-gradient(135deg,#991b1b,#1e3a5f);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #fbbf24;cursor:grab;">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:18px;">🦅</span>
@@ -291,37 +108,46 @@ function createAIPanel() {
       <button id="duddas-minimize" style="background:none;border:none;color:#fff;cursor:pointer;font-size:16px;padding:0;">−</button>
     </div>
 
-    <div id="duddas-content" style="padding:12px;">
-      <!-- Current Lead Info -->
-      <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:10px;margin-bottom:10px;">
-        <div style="font-size:11px;color:#71717a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Current Lead</div>
-        <div id="duddas-lead-name" style="font-weight:600;color:#fff;">No conversation open</div>
-        <div id="duddas-lead-phone" style="font-size:11px;color:#a1a1aa;"></div>
-        <div id="duddas-lead-info" style="font-size:10px;color:#fbbf24;margin-top:4px;"></div>
+    <div id="duddas-content" style="padding:16px;">
+      <!-- Coverage Type -->
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;color:#a1a1aa;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Coverage Type</label>
+        <select id="duddas-coverage" style="width:100%;background:#1e293b;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:10px;color:#fff;font-size:13px;cursor:pointer;">
+          <option value="employee">Employee Only</option>
+          <option value="spouse">Employee + Spouse</option>
+          <option value="children">Employee + Children</option>
+          <option value="family">Family</option>
+        </select>
       </div>
 
-      <!-- Suggested Response -->
-      <div id="duddas-suggestion-box" style="display:none;background:linear-gradient(135deg,rgba(34,197,94,0.15),rgba(34,197,94,0.05));border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:10px;margin-bottom:10px;">
-        <div style="font-size:11px;color:#22c55e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;font-weight:600;">SUGGESTED RESPONSE</div>
-        <div id="duddas-suggestion-text" style="font-size:13px;color:#fff;line-height:1.4;max-height:100px;overflow-y:auto;"></div>
-        <button id="duddas-copy" style="margin-top:8px;background:#22c55e;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">Copy Response</button>
+      <!-- Number of Children (hidden by default) -->
+      <div id="duddas-kids-row" style="margin-bottom:14px;display:none;">
+        <label style="font-size:11px;color:#a1a1aa;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Number of Children</label>
+        <select id="duddas-kids" style="width:100%;background:#1e293b;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:10px;color:#fff;font-size:13px;cursor:pointer;">
+          <option value="1">1 Child</option>
+          <option value="2">2 Children</option>
+          <option value="3">3 Children</option>
+          <option value="4">4 Children</option>
+          <option value="5">5 Children</option>
+        </select>
       </div>
 
-      <!-- AI Chat Input -->
-      <div style="margin-bottom:10px;">
-        <div style="font-size:11px;color:#71717a;margin-bottom:6px;">Ask AI to adjust the response:</div>
-        <div style="display:flex;gap:8px;">
-          <input type="text" id="duddas-ai-input" placeholder="e.g. push for phone call, sound less AI..." style="flex:1;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;color:#fff;font-size:12px;outline:none;" />
-          <button id="duddas-ai-send" style="background:linear-gradient(135deg,#fbbf24,#b45309);color:#000;border:none;padding:10px 14px;border-radius:8px;font-weight:700;cursor:pointer;">Go</button>
-        </div>
+      <!-- Youngest Age -->
+      <div style="margin-bottom:14px;">
+        <label style="font-size:11px;color:#a1a1aa;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Youngest Policy Holder Age</label>
+        <input type="number" id="duddas-age" placeholder="Enter age..." min="1" max="99" style="width:100%;background:#1e293b;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:10px;color:#fff;font-size:13px;box-sizing:border-box;" />
       </div>
 
-      <!-- Quick Actions -->
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        <button class="duddas-quick" data-action="call" style="background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;padding:6px 10px;border-radius:6px;font-size:10px;cursor:pointer;">Push Call</button>
-        <button class="duddas-quick" data-action="casual" style="background:rgba(168,85,247,0.2);border:1px solid rgba(168,85,247,0.3);color:#c084fc;padding:6px 10px;border-radius:6px;font-size:10px;cursor:pointer;">More Casual</button>
-        <button class="duddas-quick" data-action="urgent" style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:6px 10px;border-radius:6px;font-size:10px;cursor:pointer;">Add Urgency</button>
-        <button id="duddas-refresh" style="background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.3);color:#fbbf24;padding:6px 10px;border-radius:6px;font-size:10px;cursor:pointer;">Refresh</button>
+      <!-- Generate Button -->
+      <button id="duddas-generate" style="width:100%;background:linear-gradient(135deg,#fbbf24,#b45309);color:#000;border:none;padding:12px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px;">
+        Generate Quote
+      </button>
+
+      <!-- Quote Result (hidden by default) -->
+      <div id="duddas-result" style="display:none;background:linear-gradient(135deg,rgba(34,197,94,0.15),rgba(34,197,94,0.05));border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:12px;">
+        <div style="font-size:11px;color:#22c55e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;font-weight:600;">QUOTE</div>
+        <div id="duddas-quote-text" style="font-size:13px;color:#fff;line-height:1.5;"></div>
+        <button id="duddas-copy" style="margin-top:10px;background:#22c55e;color:#fff;border:none;padding:10px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;">Copy Quote</button>
       </div>
     </div>
   `;
@@ -372,107 +198,68 @@ function createAIPanel() {
     document.getElementById('duddas-minimize').textContent = isMinimized ? '+' : '−';
   };
 
+  // Coverage type change - show/hide kids selector
+  const coverageSelect = document.getElementById('duddas-coverage');
+  const kidsRow = document.getElementById('duddas-kids-row');
+
+  coverageSelect.addEventListener('change', () => {
+    const val = coverageSelect.value;
+    if (val === 'children' || val === 'family') {
+      kidsRow.style.display = 'block';
+    } else {
+      kidsRow.style.display = 'none';
+    }
+  });
+
+  // Generate quote
+  document.getElementById('duddas-generate').onclick = generateQuote;
+  document.getElementById('duddas-age').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') generateQuote();
+  });
+
   // Copy button
   document.getElementById('duddas-copy').onclick = () => {
-    const text = document.getElementById('duddas-suggestion-text').textContent;
+    const text = document.getElementById('duddas-quote-text').textContent;
     navigator.clipboard.writeText(text);
     showNotif('Copied!', 'success');
   };
-
-  // AI input
-  const aiInput = document.getElementById('duddas-ai-input');
-  const aiSend = document.getElementById('duddas-ai-send');
-
-  aiSend.onclick = () => adjustSuggestion(aiInput.value);
-  aiInput.onkeypress = (e) => {
-    if (e.key === 'Enter') adjustSuggestion(aiInput.value);
-  };
-
-  // Quick action buttons
-  document.querySelectorAll('.duddas-quick').forEach(btn => {
-    btn.onclick = () => {
-      const action = btn.dataset.action;
-      if (action === 'call') adjustSuggestion('push for a phone call');
-      if (action === 'casual') adjustSuggestion('make it more casual and less AI');
-      if (action === 'urgent') adjustSuggestion('add urgency');
-    };
-  });
-
-  // Refresh button
-  document.getElementById('duddas-refresh').onclick = () => updatePanel();
 }
 
-// ============================================
-// PANEL UPDATES
-// ============================================
+function generateQuote() {
+  const coverage = document.getElementById('duddas-coverage').value;
+  const age = parseInt(document.getElementById('duddas-age').value);
+  const kidsCount = parseInt(document.getElementById('duddas-kids').value) || 1;
+  const resultDiv = document.getElementById('duddas-result');
+  const quoteText = document.getElementById('duddas-quote-text');
 
-let currentSuggestion = '';
+  if (!age || age < 1 || age > 99) {
+    showNotif('Please enter a valid age', 'error');
+    return;
+  }
 
-function updatePanel() {
-  const data = extractConversationData();
-  const nameEl = document.getElementById('duddas-lead-name');
-  const phoneEl = document.getElementById('duddas-lead-phone');
-  const infoEl = document.getElementById('duddas-lead-info');
-  const suggestionBox = document.getElementById('duddas-suggestion-box');
-  const suggestionText = document.getElementById('duddas-suggestion-text');
+  // Determine adults and kids based on coverage type
+  let adults = 1;
+  let kids = 0;
 
-  if (!nameEl) return;
+  if (coverage === 'spouse') {
+    adults = 2;
+  } else if (coverage === 'children') {
+    adults = 1;
+    kids = kidsCount;
+  } else if (coverage === 'family') {
+    adults = 2;
+    kids = kidsCount;
+  }
 
-  if (data.phone && data.lastIncoming) {
-    nameEl.textContent = data.contactName || 'Unknown';
-    phoneEl.textContent = data.phone;
+  const quote = calculateQuote(age, adults, kids);
 
-    // Analyze last incoming message (pass all messages to check if already quoted)
-    const analysis = analyzeMessage(data.lastIncoming.text, data.messages);
-    infoEl.textContent = analysis.info;
-    currentSuggestion = analysis.suggestion;
-    suggestionText.textContent = analysis.suggestion;
-    suggestionBox.style.display = 'block';
-  } else if (data.phone) {
-    nameEl.textContent = data.contactName || 'Unknown';
-    phoneEl.textContent = data.phone;
-    infoEl.textContent = 'Waiting for incoming message...';
-    suggestionBox.style.display = 'none';
+  if (quote.isMedicare) {
+    quoteText.textContent = `We don't specialize in Medicare, but here is our referral. Her name is Faith, she's been doing this for over a decade. Text her here +1 (352) 900-3966 or get on her calendar. PLEASE mention Jack referred you!`;
   } else {
-    nameEl.textContent = 'No conversation open';
-    phoneEl.textContent = '';
-    infoEl.textContent = '';
-    suggestionBox.style.display = 'none';
+    quoteText.textContent = generateQuoteMessage(quote.lowPrice, quote.highPrice);
   }
-}
 
-async function adjustSuggestion(instruction) {
-  if (!instruction || !currentSuggestion) return;
-
-  const inputEl = document.getElementById('duddas-ai-input');
-  const suggestionText = document.getElementById('duddas-suggestion-text');
-
-  suggestionText.innerHTML = '<span style="color:#fbbf24;">Adjusting...</span>';
-  inputEl.value = '';
-
-  try {
-    const res = await fetch(DASHBOARD_URL + '/api/adjust-suggestion', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        original: currentSuggestion,
-        instruction: instruction,
-        context: currentName || 'the lead'
-      })
-    });
-
-    const data = await res.json();
-    if (data.adjusted) {
-      currentSuggestion = data.adjusted;
-      suggestionText.textContent = data.adjusted;
-    } else {
-      suggestionText.textContent = currentSuggestion;
-      showNotif('Could not adjust', 'error');
-    }
-  } catch (err) {
-    suggestionText.textContent = currentSuggestion;
-    showNotif('Error adjusting', 'error');
-  }
+  resultDiv.style.display = 'block';
 }
 
 // ============================================
@@ -517,39 +304,5 @@ function showNotif(message, type = 'info') {
 
 console.log(`🦅 Duddas Quotes v${VERSION} loaded`);
 
-// Track last seen message for auto-refresh
-let lastSeenMessage = '';
-let lastSeenPhone = '';
-
-function checkForNewMessages() {
-  const data = extractConversationData();
-
-  // Check if there's a new message or different conversation
-  const currentLastMsg = data.lastIncoming?.text || '';
-  const currentPhone = data.phone || '';
-
-  if (currentLastMsg !== lastSeenMessage || currentPhone !== lastSeenPhone) {
-    lastSeenMessage = currentLastMsg;
-    lastSeenPhone = currentPhone;
-    updatePanel();
-    console.log('🦅 New message detected, refreshing panel');
-  }
-}
-
 // Create panel after page loads
-setTimeout(createAIPanel, 2000);
-
-// Update panel when clicking around
-let lastClickTime = 0;
-document.addEventListener('click', () => {
-  const now = Date.now();
-  if (now - lastClickTime < 1000) return;
-  lastClickTime = now;
-  setTimeout(updatePanel, 500);
-});
-
-// Initial update
-setTimeout(updatePanel, 3000);
-
-// Auto-refresh every 3 seconds to catch new messages
-setInterval(checkForNewMessages, 3000);
+setTimeout(createQuotePanel, 1000);
