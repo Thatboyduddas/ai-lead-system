@@ -578,6 +578,21 @@
     }
     .message-bubble.outgoing .message-time { color: rgba(255, 255, 255, 0.6); }
 
+    /* Sending animation */
+    .message-bubble.sending-animation {
+      animation: sendSlide 0.4s ease-out;
+    }
+    @keyframes sendSlide {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
     .empty-conversation {
       flex: 1;
       display: flex;
@@ -2359,29 +2374,61 @@
         return;
       }
 
-      btn.textContent = 'Queued...';
+      btn.textContent = 'Sending...';
       btn.classList.add('sending');
 
       const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+      const messageText = selectedLead.copyMessage;
 
       try {
         const res = await fetch(`/api/leads/${encodeURIComponent(phone)}/pending`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: selectedLead.copyMessage })
+          body: JSON.stringify({ message: messageText })
         });
 
         if (res.ok) {
+          // Add message visually to the conversation
+          const container = document.getElementById('messages-container');
+          if (container) {
+            const msgBubble = document.createElement('div');
+            msgBubble.className = 'message-bubble outgoing sending-animation';
+            msgBubble.innerHTML = `
+              <div style="white-space: pre-wrap;">${messageText}</div>
+              <div class="message-time">You | ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ✓</div>
+            `;
+            container.appendChild(msgBubble);
+            container.scrollTop = container.scrollHeight;
+
+            // Remove animation class after it plays
+            setTimeout(() => msgBubble.classList.remove('sending-animation'), 500);
+          }
+
           btn.textContent = 'Sent!';
           btn.classList.remove('sending');
           btn.classList.add('sent');
+
+          // Update local state
+          if (selectedLead.messages) {
+            selectedLead.messages.push({
+              text: messageText,
+              timestamp: new Date().toISOString(),
+              isOutgoing: true
+            });
+          }
+
+          // Clear the suggestion since we sent it
+          selectedLead.copyMessage = null;
+          selectedLead.category = 'waiting';
+          selectedLead.suggestedAction = '⏳ Waiting for response';
 
           await markAction('Sent message');
 
           setTimeout(() => {
             btn.textContent = 'Send in SalesGod';
             btn.classList.remove('sent');
-          }, 5000);
+            loadLeads(); // Refresh to update UI
+          }, 2000);
         } else {
           throw new Error('Failed to queue');
         }

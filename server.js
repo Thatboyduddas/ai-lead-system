@@ -709,17 +709,25 @@ app.get('/api/test', async (req, res) => {
 });
 
 app.post('/api/simulate', async (req, res) => {
+  // Focused test cases: Yes responses and Age/Gender responses only
   const testMessages = [
-    { msg: "Yes I'm interested!", name: "Hot Lead" },
-    { msg: "55 female\n56 male\n32 female", name: "Family Quote" },
-    { msg: "Can you call me in April?", name: "Schedule" },
-    { msg: "How much?", name: "Price Ask" },
-    { msg: "No thanks", name: "Dead" },
-    { msg: "I'm 67 need coverage", name: "Medicare" },
-    { msg: "Maybe", name: "Soft Positive" },
-    { msg: "35 male just me", name: "Single" },
-    { msg: "Hi", name: "Greeting" },
-    { msg: "Hey", name: "Greeting 2" }
+    // YES / INTERESTED responses - should trigger "Age and gender" tag
+    { msg: "Yes", name: "Quick Yes" },
+    { msg: "Yeah I'm interested", name: "Interested" },
+    { msg: "Sure send me info", name: "Sure Thing" },
+    { msg: "Yes please", name: "Polite Yes" },
+    { msg: "Yep", name: "Yep" },
+    { msg: "Ok sounds good", name: "Sounds Good" },
+    { msg: "How much is it?", name: "Price Ask" },
+    // AGE/GENDER responses - should trigger quote + "Quoted" tag
+    { msg: "35 male", name: "Single Male" },
+    { msg: "42 female", name: "Single Female" },
+    { msg: "28", name: "Just Age" },
+    { msg: "45 m", name: "Short Format" },
+    { msg: "52 female just me", name: "Just Me" },
+    { msg: "38 male and 36 female", name: "Couple" },
+    { msg: "41 male 39 female 2 kids", name: "Family" },
+    { msg: "55 f and my husband is 58", name: "Spouse Mention" }
   ];
   
   const test = testMessages[Math.floor(Math.random() * testMessages.length)];
