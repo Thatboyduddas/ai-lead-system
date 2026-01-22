@@ -1785,6 +1785,56 @@ app.post('/api/settings/auto-send', (req, res) => {
   res.json({ enabled: autoSendEnabled });
 });
 
+// ============ SUGGESTION GENERATION ============
+
+// Get suggestion for a lead - generates one if needed
+app.get('/api/leads/:phone/suggestion', async (req, res) => {
+  try {
+    const phone = decodeURIComponent(req.params.phone).replace(/[^0-9+]/g, '');
+    const lead = await getLead(phone);
+
+    if (!lead) {
+      return res.json({ suggestion: null, error: 'Lead not found' });
+    }
+
+    // If we already have a suggestion, return it
+    if (lead.copyMessage) {
+      return res.json({
+        suggestion: lead.copyMessage,
+        category: lead.category,
+        name: lead.name
+      });
+    }
+
+    // Generate a suggestion based on the last message
+    if (lead.messages && lead.messages.length > 0) {
+      const lastIncoming = [...lead.messages].reverse().find(m => !m.isOutgoing);
+      if (lastIncoming) {
+        const analysis = analyzeMessage(lastIncoming.text, lead.messages || []);
+        lead.copyMessage = analysis.copyMessage;
+        lead.category = analysis.category;
+        await saveLead(lead);
+
+        return res.json({
+          suggestion: analysis.copyMessage,
+          category: analysis.category,
+          name: lead.name
+        });
+      }
+    }
+
+    // Default suggestion if no messages
+    res.json({
+      suggestion: "Hey! How can I help you today?",
+      category: lead.category || 'new',
+      name: lead.name
+    });
+  } catch (err) {
+    console.error('Suggestion error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============ PENDING MESSAGES FOR AUTO-SEND ============
 
 // Get ALL pending messages in the queue (for extension auto-send)

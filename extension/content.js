@@ -649,7 +649,7 @@ function monitorConversationChanges() {
 
 // Watch for DOM changes that indicate a new conversation was opened
 const conversationObserver = new MutationObserver((mutations) => {
-  // Debounce - wait for DOM to settle
+  // Debounce - wait for DOM to settle (increased to reduce glitching)
   clearTimeout(window.domSettleTimeout);
   window.domSettleTimeout = setTimeout(() => {
     const data = extractConversationData();
@@ -659,9 +659,10 @@ const conversationObserver = new MutationObserver((mutations) => {
       if (newHash !== window.lastObservedHash) {
         window.lastObservedHash = newHash;
         sendToDashboard(data, true); // Full sync on any significant change
+        updateAIBoxLeadInfo(); // Update suggestion box
       }
     }
-  }, 1000);
+  }, 1500); // Increased from 1000 to 1500ms
 });
 
 // Start observing the page for changes
@@ -839,47 +840,89 @@ function formatAIResponse(response) {
 }
 
 // Update current lead info in the AI box
+let lastDisplayedPhone = null;
+
 function updateAIBoxLeadInfo() {
   const nameEl = document.getElementById('duddas-lead-name');
   const phoneEl = document.getElementById('duddas-lead-phone');
   const suggestionBox = document.getElementById('duddas-suggestion-box');
-  const suggestionText = document.getElementById('duddas-suggestion-text');
 
   if (!nameEl) return;
 
   const data = extractConversationData();
 
   if (data.phone && data.messages.length > 0) {
-    nameEl.textContent = data.contactName || 'Unknown';
-    phoneEl.textContent = data.phone;
+    const cleanPhone = data.phone.replace(/[^0-9+]/g, '');
 
-    // Get suggestion from server
-    fetchSuggestion(data.phone);
+    // Only update if phone changed
+    if (cleanPhone !== lastDisplayedPhone) {
+      lastDisplayedPhone = cleanPhone;
+      nameEl.textContent = data.contactName || 'Unknown';
+      phoneEl.textContent = data.phone;
+
+      // Reset and fetch new suggestion
+      resetSuggestionState();
+      fetchSuggestion(data.phone);
+    }
   } else {
-    nameEl.textContent = 'No conversation open';
-    phoneEl.textContent = '';
-    suggestionBox.style.display = 'none';
+    if (lastDisplayedPhone !== null) {
+      lastDisplayedPhone = null;
+      nameEl.textContent = 'No conversation open';
+      phoneEl.textContent = '';
+      if (suggestionBox) suggestionBox.style.display = 'none';
+      resetSuggestionState();
+    }
   }
 }
 
-// Fetch AI suggestion for current lead
+// Fetch AI suggestion for current lead - with debouncing
+let lastSuggestionPhone = null;
+let suggestionFetchInProgress = false;
+
 async function fetchSuggestion(phone) {
+  if (!phone) return;
+
+  const cleanPhone = phone.replace(/[^0-9+]/g, '');
+
+  // Prevent duplicate fetches
+  if (suggestionFetchInProgress || cleanPhone === lastSuggestionPhone) return;
+  suggestionFetchInProgress = true;
+  lastSuggestionPhone = cleanPhone;
+
+  const suggestionBox = document.getElementById('duddas-suggestion-box');
+  const suggestionText = document.getElementById('duddas-suggestion-text');
+
+  if (!suggestionBox || !suggestionText) {
+    suggestionFetchInProgress = false;
+    return;
+  }
+
+  // Show loading state
+  suggestionText.textContent = 'Generating suggestion...';
+  suggestionBox.style.display = 'block';
+
   try {
-    const res = await fetch(DASHBOARD_URL + `/api/leads/${encodeURIComponent(phone.replace(/[^0-9+]/g, ''))}`);
-    const lead = await res.json();
+    const res = await fetch(DASHBOARD_URL + `/api/leads/${encodeURIComponent(cleanPhone)}/suggestion`);
+    const data = await res.json();
 
-    const suggestionBox = document.getElementById('duddas-suggestion-box');
-    const suggestionText = document.getElementById('duddas-suggestion-text');
-
-    if (lead && lead.copyMessage) {
-      suggestionText.textContent = lead.copyMessage;
+    if (data && data.suggestion) {
+      suggestionText.textContent = data.suggestion;
       suggestionBox.style.display = 'block';
     } else {
       suggestionBox.style.display = 'none';
     }
   } catch (err) {
-    // Silently fail
+    suggestionBox.style.display = 'none';
+    console.error('Suggestion fetch error:', err);
+  } finally {
+    suggestionFetchInProgress = false;
   }
+}
+
+// Reset suggestion state when conversation changes
+function resetSuggestionState() {
+  lastSuggestionPhone = null;
+  suggestionFetchInProgress = false;
 }
 
 // Update the current lead display in AI box
@@ -998,7 +1041,7 @@ async function updateStatusIndicator() {
 // INITIALIZATION
 // ============================================
 
-console.log("🚀 Duddas CRM v5.1 - Auto-Sync Edition");
+console.log("🚀 Duddas CRM v6.0 - AI Assistant Edition");
 
 // Create status indicator
 setTimeout(createStatusIndicator, 2000);
@@ -1006,34 +1049,35 @@ setTimeout(createStatusIndicator, 2000);
 // Start monitoring for conversation changes (MutationObserver)
 setTimeout(startConversationMonitoring, 3000);
 
-// Regular sync of current conversation (backup polling)
-setInterval(checkAndSync, 3000);
-
-// Monitor for conversation changes (backup)
-setInterval(monitorConversationChanges, 2000);
+// REDUCED POLLING - Only essential intervals
+// Regular sync of current conversation (backup polling) - reduced frequency
+setInterval(checkAndSync, 8000); // Was 3000, now 8000
 
 // Check for pending sends (current lead - legacy)
-setInterval(checkPendingSends, 3000);
+setInterval(checkPendingSends, 5000); // Was 3000, now 5000
 
 // Check for tags to apply
-setInterval(checkPendingTags, 2000);
+setInterval(checkPendingTags, 5000); // Was 2000, now 5000
 
 // Process message queue (auto-navigate and send)
-setInterval(processMessageQueue, 5000);
+setInterval(processMessageQueue, 8000); // Was 5000, now 8000
 
-// Update status indicator
-setInterval(updateStatusIndicator, 5000);
+// Update status indicator (includes updateCurrentLeadDisplay)
+setInterval(updateStatusIndicator, 8000); // Was 5000, now 8000
 
 // Check auto-send status
-setInterval(checkAutoSendStatus, 10000);
+setInterval(checkAutoSendStatus, 15000); // Was 10000, now 15000
 
-// Initial checks
+// Debounced click handler for conversation changes
+let clickDebounceTimer = null;
 document.addEventListener("click", () => {
-  // Full sync on any click (user opened a conversation)
-  setTimeout(() => {
+  // Debounce - only trigger after user stops clicking
+  clearTimeout(clickDebounceTimer);
+  clickDebounceTimer = setTimeout(() => {
     const data = extractConversationData();
     if (data.phone && data.messages.length > 0) {
       sendToDashboard(data, true);
+      updateAIBoxLeadInfo(); // Update suggestion when clicking
     }
   }, 800);
 });
