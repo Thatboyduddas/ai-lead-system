@@ -510,6 +510,38 @@
       font-weight: 600;
       border: 1px solid rgba(251, 191, 36, 0.25);
     }
+    .tag-dropdown-container {
+      margin-left: 8px;
+    }
+    .tag-dropdown {
+      padding: 10px 14px;
+      padding-right: 36px;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.2) 0%, rgba(30, 41, 59, 0.9) 100%);
+      border: 1px solid var(--blue-primary);
+      border-radius: var(--radius-md);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      min-width: 160px;
+    }
+    .tag-dropdown:hover {
+      border-color: var(--gold-primary);
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
+    }
+    .tag-dropdown:focus {
+      outline: none;
+      border-color: var(--gold-primary);
+    }
+    .tag-dropdown option {
+      background: var(--bg-secondary);
+      color: #fff;
+      padding: 10px;
+    }
     .header-actions-right { display: flex; gap: 10px; }
 
     /* AI Bar */
@@ -2506,6 +2538,29 @@
       }
     }
 
+    async function applyTagFromDropdown(tag) {
+      if (!selectedLead || !tag) return;
+      const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+
+      try {
+        await fetch(`/api/leads/${encodeURIComponent(phone)}/tag`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag })
+        });
+
+        // Also update the currentTag locally
+        selectedLead.currentTag = tag;
+        selectedLead.tagToApply = tag;
+
+        showToast(`Tag set: ${tag}`, 'success');
+        loadLeads();
+      } catch (err) {
+        console.error('Error setting tag:', err);
+        showToast('Error setting tag', 'error');
+      }
+    }
+
     // ============ EXISTING FUNCTIONS ============
     function toggleAutoSend() {
       autoSendEnabled = document.getElementById('auto-send-toggle').checked;
@@ -2709,8 +2764,24 @@
           <div class="contact-info">
             <div class="contact-avatar">${(lead.name || '?')[0].toUpperCase()}</div>
             <div class="contact-details">
-              <h2>${lead.name || 'Unknown'} ${lead.currentTag ? `<span class="contact-tag">${lead.currentTag}</span>` : ''}</h2>
+              <h2>${lead.name || 'Unknown'}</h2>
               <p>${lead.phone}${lead.followUpDate ? ` | Follow up: ${lead.followUpDate}` : ''}</p>
+            </div>
+            <div class="tag-dropdown-container">
+              <select class="tag-dropdown" id="tag-dropdown" onchange="applyTagFromDropdown(this.value)">
+                <option value="" ${!lead.tagToApply && !lead.currentTag ? 'selected' : ''}>Select Tag...</option>
+                <option value="Age and gender" ${lead.tagToApply === 'Age and gender' || lead.currentTag === 'Age and gender' ? 'selected' : ''}>Age and gender</option>
+                <option value="Quoted" ${lead.tagToApply === 'Quoted' || lead.currentTag === 'Quoted' ? 'selected' : ''}>Quoted</option>
+                <option value="Follow up" ${lead.tagToApply === 'Follow up' || lead.currentTag === 'Follow up' ? 'selected' : ''}>Follow up</option>
+                <option value="Ghosted" ${lead.tagToApply === 'Ghosted' || lead.currentTag === 'Ghosted' ? 'selected' : ''}>Ghosted</option>
+                <option value="Appointment Set" ${lead.tagToApply === 'Appointment Set' || lead.currentTag === 'Appointment Set' ? 'selected' : ''}>Appointment Set</option>
+                <option value="Called: Answered" ${lead.tagToApply === 'Called: Answered' || lead.currentTag === 'Called: Answered' ? 'selected' : ''}>Called: Answered</option>
+                <option value="Called: No Answer" ${lead.tagToApply === 'Called: No Answer' || lead.currentTag === 'Called: No Answer' ? 'selected' : ''}>Called: No Answer</option>
+                <option value="Deadline" ${lead.tagToApply === 'Deadline' || lead.currentTag === 'Deadline' ? 'selected' : ''}>Deadline</option>
+                <option value="Sold" ${lead.tagToApply === 'Sold' || lead.currentTag === 'Sold' ? 'selected' : ''}>Sold</option>
+                <option value="Dead" ${lead.tagToApply === 'Dead' || lead.currentTag === 'Dead' ? 'selected' : ''}>Dead</option>
+                <option value="Medicare Referral" ${lead.tagToApply === 'Medicare Referral' || lead.currentTag === 'Medicare Referral' ? 'selected' : ''}>Medicare Referral</option>
+              </select>
             </div>
           </div>
           <div class="header-actions-right">
@@ -2793,22 +2864,6 @@
               <span>Not interested - no action needed</span>
             </div>
           ` : ''}
-          <div class="salesgod-tags">
-            <div class="tags-header">
-              <span class="tags-title">SalesGod Tags</span>
-              <span class="tags-status ${autoTagEnabled ? 'auto-on' : 'auto-off'}">${autoTagEnabled ? 'AUTO' : 'MANUAL'}</span>
-            </div>
-            <div class="tag-buttons">
-              <button class="tag-btn ${lead.tagToApply === 'Age and gender' ? 'active' : ''}" onclick="applyTagManual('${lead.phone}', 'Age and gender')">Age & Gender</button>
-              <button class="tag-btn ${lead.tagToApply === 'Quoted' ? 'active' : ''}" onclick="applyTagManual('${lead.phone}', 'Quoted')">Quoted</button>
-              <button class="tag-btn ${lead.tagToApply === 'Follow up' ? 'active' : ''}" onclick="applyTagManual('${lead.phone}', 'Follow up')">Follow Up</button>
-              <button class="tag-btn" onclick="applyTagManual('${lead.phone}', 'Ghosted')">Ghosted</button>
-              <button class="tag-btn" onclick="applyTagManual('${lead.phone}', 'Deadline')">Deadline</button>
-              <button class="tag-btn" onclick="applyTagManual('${lead.phone}', 'Sold')">Sold</button>
-              <button class="tag-btn" onclick="applyTagManual('${lead.phone}', 'Dead')">Dead</button>
-              <button class="tag-btn" onclick="applyTagManual('${lead.phone}', 'Medicare Referral')">Medicare</button>
-            </div>
-          </div>
           <div class="quick-actions">
             <button class="action-btn" onclick="markAction('Sent message')">Sent Msg</button>
             <button class="action-btn" onclick="markAction('Left voicemail')">Voicemail</button>
