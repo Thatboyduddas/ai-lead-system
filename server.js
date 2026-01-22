@@ -344,6 +344,44 @@ function detectIntent(message, context = {}) {
   return { intent: 'review', confidence: 0.3 };
 }
 
+// ============ SALESGOD API INTEGRATION ============
+const SALESGOD_WEBHOOK_URL = process.env.SALESGOD_WEBHOOK_URL;
+const SALESGOD_TOKEN = process.env.SALESGOD_TOKEN;
+
+// Send tag to SalesGod directly via API - INSTANT sync!
+async function syncTagToSalesGod(phone, tag, leadName = '') {
+  if (!SALESGOD_WEBHOOK_URL || !SALESGOD_TOKEN) {
+    console.log('SalesGod API not configured');
+    return { success: false, error: 'SalesGod API not configured' };
+  }
+
+  try {
+    console.log(`📤 Syncing tag "${tag}" to SalesGod for ${phone}`);
+
+    const response = await fetch(SALESGOD_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SALESGOD_TOKEN}`
+      },
+      body: JSON.stringify({
+        phone: phone,
+        tag: tag,
+        name: leadName,
+        source: 'duddas-crm'
+      })
+    });
+
+    const result = await response.text();
+    console.log(`✅ SalesGod response:`, result);
+
+    return { success: response.ok, response: result };
+  } catch (err) {
+    console.error('❌ SalesGod sync error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ============ CALENDLY INTEGRATION ============
 const CALENDLY_API_KEY = process.env.CALENDLY_API_KEY;
 const CALENDLY_URL = 'https://calendly.com/esteshealthsolutions/';
@@ -1105,14 +1143,16 @@ app.post('/api/leads/:phone/tags', async (req, res) => {
       lead.currentTag = tags && tags.length > 0 ? tags[tags.length - 1] : null;
       lead.tagToApply = lead.currentTag;
 
-      // Reset tagApplied if tag changed - so it syncs to SalesGod
-      if (lead.tagToApply !== oldTag) {
-        lead.tagApplied = false;
-        console.log(`Tag changed from ${oldTag} to ${lead.tagToApply} - will sync to SalesGod`);
+      // If tag changed, sync to SalesGod INSTANTLY via API
+      if (lead.tagToApply && lead.tagToApply !== oldTag) {
+        console.log(`🚀 Tag changed from ${oldTag} to ${lead.tagToApply} - syncing to SalesGod NOW`);
+        const syncResult = await syncTagToSalesGod(phone, lead.tagToApply, lead.name);
+        lead.tagApplied = syncResult.success;
+        lead.salesgodSyncResult = syncResult;
       }
 
       await saveLead(phone, lead);
-      res.json({ success: true, tags: lead.tags, tagToApply: lead.tagToApply });
+      res.json({ success: true, tags: lead.tags, tagToApply: lead.tagToApply, salesgodSync: lead.salesgodSyncResult });
     } else {
       res.status(404).json({ success: false, error: 'Lead not found' });
     }
