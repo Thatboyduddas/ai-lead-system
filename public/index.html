@@ -2852,6 +2852,109 @@
       }
     }
 
+    async function sendToSalesGod() {
+      if (!selectedLead) return;
+
+      const btn = document.getElementById('send-to-salesgod-btn');
+      const textarea = document.getElementById('editable-response');
+      const messageText = textarea ? textarea.value.trim() : selectedLead.copyMessage;
+
+      if (!messageText) {
+        showToast('No message to send', 'error');
+        return;
+      }
+
+      const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+
+      // Update button state
+      btn.textContent = '⏳ Sending...';
+      btn.disabled = true;
+
+      // Add message visually as outgoing immediately
+      const container = document.getElementById('messages-container');
+      let msgBubble;
+      if (container) {
+        msgBubble = document.createElement('div');
+        msgBubble.className = 'message-bubble outgoing sending-animation';
+        msgBubble.innerHTML = `
+          <div style="white-space: pre-wrap;">${messageText}</div>
+          <div class="message-time">You | ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ⏳</div>
+        `;
+        container.appendChild(msgBubble);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      try {
+        // Send directly to SalesGod via our API
+        const res = await fetch(`/api/leads/${encodeURIComponent(phone)}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: messageText })
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+          // Update visual indicator
+          if (msgBubble) {
+            msgBubble.querySelector('.message-time').innerHTML =
+              `You | ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ✓${result.salesgodSync ? ' ✓' : ''}`;
+            msgBubble.classList.remove('sending-animation');
+          }
+
+          // Auto-apply tag based on what was sent
+          const msgLower = messageText.toLowerCase();
+          if (msgLower.includes('qualify for plans') || msgLower.includes('deductible') || (msgLower.includes('$') && msgLower.includes('month'))) {
+            await applyTagFromDropdown('Quoted');
+            showToast('✅ Sent to SalesGod! Tag: Quoted', 'success');
+          } else if (msgLower.includes('age') || msgLower.includes('how old')) {
+            await applyTagFromDropdown('Age and gender');
+            showToast('✅ Sent to SalesGod! Tag: Age and gender', 'success');
+          } else {
+            showToast(result.salesgodSync ? '✅ Sent to SalesGod!' : '✅ Saved (SalesGod sync pending)', 'success');
+          }
+
+          // Clear the textarea
+          if (textarea) textarea.value = '';
+
+          // Update button
+          btn.textContent = '✅ Sent!';
+          btn.classList.add('sent');
+
+          // Clear suggestion
+          selectedLead.copyMessage = null;
+          selectedLead.category = 'waiting';
+
+          await markAction('Sent to SalesGod');
+
+          // Reload leads after delay
+          setTimeout(() => {
+            btn.textContent = '📤 Send to SalesGod';
+            btn.disabled = false;
+            btn.classList.remove('sent');
+            loadLeads();
+          }, 2000);
+
+        } else {
+          throw new Error(result.error || 'Failed to send');
+        }
+
+      } catch (err) {
+        console.error('Send error:', err);
+        if (msgBubble) {
+          msgBubble.querySelector('.message-time').innerHTML =
+            `You | ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ❌`;
+        }
+        showToast('❌ Failed to send: ' + err.message, 'error');
+        btn.textContent = '❌ Failed';
+        btn.disabled = false;
+        setTimeout(() => {
+          btn.textContent = '📤 Send to SalesGod';
+        }, 3000);
+      }
+    }
+
+    // Keep simulate function for testing purposes
     async function simulateSendMessage() {
       if (!selectedLead) return;
 
@@ -3473,7 +3576,7 @@
               <textarea class="editable-response" id="editable-response" rows="4">${lead.copyMessage}</textarea>
               <div class="send-buttons">
                 <button class="copy-btn" onclick="copyEditedMessage()">Copy</button>
-                <button class="send-btn simulate-send" onclick="simulateSendMessage()">Send (Simulate)</button>
+                <button class="send-btn" id="send-to-salesgod-btn" onclick="sendToSalesGod()">📤 Send to SalesGod</button>
               </div>
 
               <div class="ai-chat-box">

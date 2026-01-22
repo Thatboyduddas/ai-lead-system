@@ -737,21 +737,83 @@ Write ONLY the new response text, nothing else. Keep it short (1-2 sentences).`
   }
 });
 
+// ============ PARSE SALESGOD MESSAGE FORMAT ============
+// SalesGod sends messages in format: "1377983098 - inbound - Sure - 2026-01-22 02:42:34"
+function parseSalesGodMessage(rawMessage) {
+  if (!rawMessage) return { text: '', isOutgoing: false, timestamp: null, msgId: null };
+
+  // Try to parse the SalesGod format: ID - direction - message - timestamp
+  const sgPattern = /^(\d+)\s*-\s*(inbound|outbound)\s*-\s*(.+?)\s*-\s*(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})$/i;
+  const match = rawMessage.match(sgPattern);
+
+  if (match) {
+    return {
+      msgId: match[1],
+      isOutgoing: match[2].toLowerCase() === 'outbound',
+      text: match[3].trim(),
+      timestamp: match[4]
+    };
+  }
+
+  // If not in SalesGod format, return as-is
+  return {
+    text: rawMessage,
+    isOutgoing: false,
+    timestamp: null,
+    msgId: null
+  };
+}
+
+// ============ SEND MESSAGE TO SALESGOD ============
+async function sendMessageToSalesGod(phone, message, leadName = '') {
+  if (!SALESGOD_WEBHOOK_URL || !SALESGOD_TOKEN) {
+    console.log('SalesGod API not configured');
+    return { success: false, error: 'SalesGod API not configured' };
+  }
+
+  try {
+    console.log(`📤 Sending message to SalesGod for ${phone}: "${message.substring(0, 50)}..."`);
+
+    const response = await fetch(SALESGOD_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SALESGOD_TOKEN}`
+      },
+      body: JSON.stringify({
+        phone: phone,
+        message: message,
+        name: leadName,
+        type: 'outbound',
+        source: 'duddas-crm'
+      })
+    });
+
+    const result = await response.text();
+    console.log(`✅ SalesGod send response:`, result);
+
+    return { success: response.ok, response: result };
+  } catch (err) {
+    console.error('❌ SalesGod send error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
 // ============ WEBHOOK ============
 app.post('/webhook/salesgod', async (req, res) => {
   console.log('Webhook received:', req.body);
-  
+
   const { phone, full_name, messages_as_string, status, isOutgoing, hasReferral } = req.body;
-  
+
   if (!phone) {
     return res.json({ success: false, error: 'No phone number' });
   }
-  
+
   const cleanPhone = phone.replace(/[^0-9+]/g, '');
-  
+
   try {
     let lead = await getLead(cleanPhone);
-    
+
     if (!lead) {
       lead = {
         id: Date.now(),
@@ -766,30 +828,39 @@ app.post('/webhook/salesgod', async (req, res) => {
         hasReferral: false
       };
     }
-    
+
     if (full_name && full_name !== 'Unknown') {
       lead.name = full_name;
     }
-    
+
     if (hasReferral) {
       lead.hasReferral = true;
     }
-    
+
+    // Parse the SalesGod message format
+    const parsed = parseSalesGodMessage(messages_as_string);
+    const messageText = parsed.text || messages_as_string;
+    // Use parsed direction if available, otherwise use the isOutgoing from request
+    const msgIsOutgoing = parsed.msgId ? parsed.isOutgoing : !!isOutgoing;
+    const msgTimestamp = parsed.timestamp || new Date().toISOString();
+
+    // Check if we already have this message (by text + direction combo)
     const lastMsg = lead.messages[lead.messages.length - 1];
-    if (!lastMsg || lastMsg.text !== messages_as_string || lastMsg.isOutgoing !== !!isOutgoing) {
-      
+    const isDuplicate = lastMsg && lastMsg.text === messageText && lastMsg.isOutgoing === msgIsOutgoing;
+
+    if (!isDuplicate && messageText) {
       let analysis = null;
-      
-      if (isOutgoing) {
+
+      if (msgIsOutgoing) {
         // OUTGOING MESSAGE - We sent something, clear suggestions
         lead.category = 'waiting';
         lead.priority = 'low';
         lead.suggestedAction = '⏳ Waiting for response';
         lead.copyMessage = null;
         lead.tagToApply = null;
-        
+
         // Track what we sent
-        const msgLower = messages_as_string.toLowerCase();
+        const msgLower = messageText.toLowerCase();
         if (msgLower.includes('qualify for plans between') || msgLower.includes('deductibles and networks')) {
           lead.quoteSent = true;
           lead.quoteSentAt = new Date().toISOString();
@@ -797,10 +868,10 @@ app.post('/webhook/salesgod', async (req, res) => {
         if (msgLower.includes('faith') && (msgLower.includes('medicare') || msgLower.includes('352'))) {
           lead.referralSent = true;
         }
-        
+
       } else {
         // INCOMING MESSAGE - Analyze and suggest response
-        analysis = processMessage(messages_as_string, { 
+        analysis = processMessage(messageText, {
           currentTag: lead.currentTag,
           quoteSent: lead.quoteSent,
           referralSent: lead.referralSent,
@@ -812,34 +883,93 @@ app.post('/webhook/salesgod', async (req, res) => {
         lead.copyMessage = analysis.copyMessage;
         lead.tagToApply = analysis.tagToApply;
         lead.parsedData = analysis.parsedData;
-        
+
         if (analysis.followUpDate) {
           lead.followUpDate = analysis.followUpDate;
         }
-        
+
         if (analysis.intent === 'medicare') {
           lead.isMedicare = true;
         }
       }
-      
+
       lead.messages.push({
-        text: messages_as_string,
-        timestamp: new Date().toISOString(),
-        isOutgoing: !!isOutgoing,
-        analysis: analysis
+        text: messageText,
+        timestamp: msgTimestamp,
+        isOutgoing: msgIsOutgoing,
+        analysis: analysis,
+        salesgodId: parsed.msgId || null
       });
-      
+
       lead.lastMessageAt = new Date().toISOString();
     }
-    
+
     if (status) {
       lead.currentTag = status;
     }
-    
+
     await saveLead(cleanPhone, lead);
     res.json({ success: true, lead });
   } catch (err) {
     console.error('Webhook error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============ SEND MESSAGE FROM DASHBOARD ============
+app.post('/api/leads/:phone/send', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+  const { message } = req.body;
+
+  if (!message) {
+    return res.status(400).json({ success: false, error: 'No message provided' });
+  }
+
+  try {
+    const lead = await getLead(phone);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+
+    // Send to SalesGod via API
+    const sendResult = await sendMessageToSalesGod(phone, message, lead.name);
+
+    // Add message to our local history regardless of SalesGod result
+    lead.messages.push({
+      text: message,
+      timestamp: new Date().toISOString(),
+      isOutgoing: true,
+      sentFromDashboard: true,
+      salesgodSync: sendResult.success
+    });
+
+    // Update lead state after sending
+    lead.category = 'waiting';
+    lead.priority = 'low';
+    lead.suggestedAction = '⏳ Waiting for response';
+    lead.copyMessage = null;
+    lead.lastMessageAt = new Date().toISOString();
+
+    // Track what we sent
+    const msgLower = message.toLowerCase();
+    if (msgLower.includes('qualify for plans between') || msgLower.includes('deductibles and networks')) {
+      lead.quoteSent = true;
+      lead.quoteSentAt = new Date().toISOString();
+    }
+    if (msgLower.includes('faith') && (msgLower.includes('medicare') || msgLower.includes('352'))) {
+      lead.referralSent = true;
+    }
+
+    await saveLead(phone, lead);
+
+    res.json({
+      success: true,
+      salesgodSync: sendResult.success,
+      salesgodResponse: sendResult.response || sendResult.error,
+      message: 'Message sent'
+    });
+  } catch (err) {
+    console.error('Send message error:', err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
