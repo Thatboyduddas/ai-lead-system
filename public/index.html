@@ -3532,7 +3532,7 @@
             <div class="tag-selector">
               <input type="text" class="tag-search" id="tag-search" placeholder="Add tag..." onfocus="showTagDropdown()" oninput="filterTags(this.value)">
               <div class="tag-dropdown-list" id="tag-dropdown-list">
-                ${['Age and gender', 'Quoted', 'Follow up', 'Ghosted', 'Appointment Set', 'Called: Answered', 'Called: No Answer', 'Deadline', 'Sold', 'Dead', 'Medicare Referral'].map(tag => `
+                ${['Age and gender', 'Quoted', 'Follow up', 'Ghosted', 'Appointment Set', 'Called: Answered', 'Called: No Answer', 'Deadline', 'Did you receive?', 'Another time', 'Sold', 'Dead', 'Medicare Referral'].map(tag => `
                   <div class="tag-option ${(lead.tags || []).includes(tag) ? 'selected' : ''}" onclick="toggleTag('${tag}')">
                     <span class="tag-dot ${getTagColor(tag)}"></span>
                     ${tag}

@@ -32,7 +32,7 @@ function extractConversationData() {
 
   if (phone) currentPhone = phone.replace(/[^0-9+]/g, '');
 
-  const tags = ["Quoted", "Age and gender", "Follow up", "Ghosted", "Deadline", "Sold", "Appointment Set", "Dead", "Medicare Referral"];
+  const tags = ["Age and gender", "Quoted", "Follow up", "Ghosted", "Appointment Set", "Called: Answered", "Called: No Answer", "Deadline", "Did you receive?", "Another time", "Sold", "Dead", "Medicare Referral"];
   for (const tag of tags) {
     if (text.includes(tag)) { currentTag = tag; break; }
   }
