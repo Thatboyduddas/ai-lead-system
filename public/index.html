@@ -2247,7 +2247,7 @@
       <div class="calendar-header">
         <h2>Calendar & Follow-ups</h2>
         <div class="calendar-actions">
-          <button class="btn btn-blue" onclick="window.open(calendlyUrl, '_blank')">Book via Calendly</button>
+          <button class="btn btn-success" style="font-size:16px;padding:12px 24px;" onclick="window.open('https://calendly.com/esteshealthsolutions/', '_blank')">Book Appt</button>
         </div>
       </div>
 
@@ -2264,15 +2264,8 @@
         <div id="gcal-embed-container"></div>
       </div>
 
-      <!-- Calendly for booking -->
-      <div class="calendly-section" style="margin-top:24px;">
-        <h3>Quick Book with Calendly</h3>
-        <div class="calendly-setup-row">
-          <input type="text" id="calendly-url" placeholder="Paste your Calendly URL (e.g., https://calendly.com/yourname)" onchange="saveCalendlyUrl()">
-          <button class="btn btn-blue" onclick="embedCalendly()">Show Booking Widget</button>
-        </div>
-        <div id="calendly-embed-container" style="margin-top:16px;"></div>
-      </div>
+      <!-- Hidden input to store Calendly URL -->
+      <input type="hidden" id="calendly-url" value="https://calendly.com/esteshealthsolutions/">
 
       <div class="followup-section" style="margin-top:24px;">
         <h3>Follow-up Needed</h3>

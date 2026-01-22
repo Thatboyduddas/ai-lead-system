@@ -344,6 +344,11 @@ function detectIntent(message, context = {}) {
   return { intent: 'review', confidence: 0.3 };
 }
 
+// ============ CALENDLY INTEGRATION ============
+// For future AI booking - will use Calendly API
+const CALENDLY_URL = 'https://calendly.com/esteshealthsolutions/';
+const CALENDLY_BOOKING_LINK = 'https://calendly.com/esteshealthsolutions/';
+
 // ============ TIME SLOT GENERATION (EST) ============
 function getSchedulingMessage() {
   // Get current time in EST
