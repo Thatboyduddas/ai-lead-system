@@ -718,7 +718,7 @@ function processMessage(message, context = {}) {
       category = 'hot';
       priority = 'urgent';
       suggestedAction = '🔥🔥 READY TO CLOSE - Schedule the call!';
-      copyMessage = getSchedulingMessage() + `\n\nBook here: ${CALENDLY_URL}30min`;
+      copyMessage = "Are you available for a quick 5-10 minute call with Jack right now to get everything set up?";
       tagToApply = 'Appointment Set';
       break;
 
@@ -728,12 +728,12 @@ function processMessage(message, context = {}) {
         category = 'hot';
         priority = 'high';
         suggestedAction = '🔥 Already quoted - push for booking';
-        copyMessage = "Happy to go over the numbers! Any questions, or ready to get started?";
+        copyMessage = "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.";
       } else {
         category = 'wants_quote';
         priority = 'high';
-        suggestedAction = '🔥 HOT LEAD - Need age for quote';
-        copyMessage = "Alright, may I have the age and gender of everyone who will be insured?";
+        suggestedAction = '🔥 HOT LEAD - Push for call';
+        copyMessage = "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.";
         tagToApply = 'Age and gender';
       }
       break;
@@ -743,15 +743,15 @@ function processMessage(message, context = {}) {
         // Already quoted but giving age again? Maybe for family member
         category = 'question';
         priority = 'high';
-        suggestedAction = '💬 Already quoted - may be adding family member';
-        copyMessage = "Want me to update the quote to include them?";
+        suggestedAction = '💬 Already quoted - push for call';
+        copyMessage = "Got it! Are you available for a quick 5-10 minute call with Jack to go over everything and get you the best rates?";
       } else {
         const { adults, kids, youngestAge, ages } = intentResult.data;
         const quote = calculateQuote(adults, kids, youngestAge);
         category = 'ready_for_quote';
         priority = 'high';
-        suggestedAction = `💰 SEND QUOTE: ${adults} adult(s), ${kids} kid(s), ages: ${ages.join(', ')}, bracket ${quote.bracket}`;
-        copyMessage = MESSAGES.quote(quote.lowPrice, quote.highPrice);
+        suggestedAction = `💰 GOT INFO: ${adults} adult(s), ${kids} kid(s) - PUSH FOR CALL`;
+        copyMessage = `Got it! Are you available for a quick 5-10 minute call with Jack to go over the coverages? I can get you exact numbers for your situation.`;
         // Don't set tagToApply here - tag applies AFTER user sends the quote
       }
       break;
@@ -792,11 +792,11 @@ function processMessage(message, context = {}) {
       category = 'question';
       priority = 'high';
       if (isQuoted) {
-        suggestedAction = '❓ Question about quote - answer and close';
-        copyMessage = "Happy to answer! What's your question?";
+        suggestedAction = '❓ Question about quote - push for call';
+        copyMessage = "Great question! Are you available for a quick 5-10 minute call with Jack? He can answer all your questions and make sure you have the info you need.";
       } else {
-        suggestedAction = '❓ Has question - answer then get age';
-        copyMessage = "Happy to help! What's your age? I'll get you numbers and answer any questions.";
+        suggestedAction = '❓ Has question - push for call';
+        copyMessage = "Happy to help! Are you available for a quick 5-10 minute call with Jack to go over the coverages and answer your questions?";
       }
       break;
       
@@ -804,28 +804,28 @@ function processMessage(message, context = {}) {
       if (isQuoted) {
         category = 'soft_positive';
         priority = 'high';
-        suggestedAction = '👋 Greeting after quote - push for booking';
-        copyMessage = "Hey! Did you get a chance to look at those numbers? Any questions?";
+        suggestedAction = '👋 Greeting after quote - push for call';
+        copyMessage = "Hey! Are you available for a quick 5-10 minute call with Jack to go over everything? That way you have all the info to make the best decision.";
       } else {
         category = 'soft_positive';
         priority = 'medium';
-        suggestedAction = '👋 Greeting - ask for age';
-        copyMessage = "Alright, may I have the age and gender of everyone who will be insured?";
+        suggestedAction = '👋 Greeting - push for call';
+        copyMessage = "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.";
         tagToApply = 'Age and gender';
       }
       break;
-      
+
     case 'soft_positive':
       if (isQuoted) {
         category = 'soft_positive';
         priority = 'high';
-        suggestedAction = '🤔 Interested after quote - push for booking';
-        copyMessage = "Great! When works for a quick 10-min call to get you set up?";
+        suggestedAction = '🤔 Interested after quote - push for call';
+        copyMessage = "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.";
       } else {
         category = 'soft_positive';
         priority = 'medium';
-        suggestedAction = '🤔 Interested - ask for age';
-        copyMessage = "Alright, may I have the age and gender of everyone who will be insured?";
+        suggestedAction = '🤔 Interested - push for call';
+        copyMessage = "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.";
         tagToApply = 'Age and gender';
       }
       break;
@@ -834,13 +834,13 @@ function processMessage(message, context = {}) {
       if (isQuoted) {
         category = 'review';
         priority = 'medium';
-        suggestedAction = '👀 Review - already quoted';
-        copyMessage = "Any questions on those numbers? Happy to go over the details!";
+        suggestedAction = '👀 Review - push for call';
+        copyMessage = "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.";
       } else {
         category = 'review';
         priority = 'medium';
-        suggestedAction = '👀 Review - need age';
-        copyMessage = "Alright, may I have the age and gender of everyone who will be insured?";
+        suggestedAction = '👀 Review - push for call';
+        copyMessage = "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.";
       }
   }
   
