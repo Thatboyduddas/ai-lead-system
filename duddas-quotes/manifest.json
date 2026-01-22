@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Duddas Quotes 1.0",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "AI-powered quote tool for health insurance sales. Get instant quotes and AI suggestions.",
   "permissions": ["storage"],
   "host_permissions": ["https://www.salesgodcrm.net/*", "https://ai-lead-system-production-df0a.up.railway.app/*"],

@@ -1,7 +1,7 @@
 // Duddas Quotes v1.0 - Simple Quote Tool
 // MAGA Theme - Focus on quoting clients
 
-const VERSION = "1.0.2";
+const VERSION = "1.0.3";
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
 
 let currentPhone = null;
@@ -126,8 +126,22 @@ function detectAgeGender(message) {
   };
 }
 
-function analyzeMessage(message) {
+function analyzeMessage(message, allMessages = []) {
   const text = message.toLowerCase();
+
+  // Check if already quoted (look for outgoing messages with price patterns)
+  const alreadyQuoted = allMessages.some(m =>
+    m.isOutgoing && /\$\d{2,3}-\$\d{2,4}\/month|\$\d{3}-\$\d{3,4}/.test(m.text)
+  );
+
+  // If already quoted, push for call
+  if (alreadyQuoted) {
+    return {
+      type: 'already_quoted',
+      suggestion: "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.",
+      info: 'Already quoted - push for call'
+    };
+  }
 
   // Check for age/gender info
   const ageInfo = detectAgeGender(message);
@@ -408,8 +422,8 @@ function updatePanel() {
     nameEl.textContent = data.contactName || 'Unknown';
     phoneEl.textContent = data.phone;
 
-    // Analyze last incoming message
-    const analysis = analyzeMessage(data.lastIncoming.text);
+    // Analyze last incoming message (pass all messages to check if already quoted)
+    const analysis = analyzeMessage(data.lastIncoming.text, data.messages);
     infoEl.textContent = analysis.info;
     currentSuggestion = analysis.suggestion;
     suggestionText.textContent = analysis.suggestion;
