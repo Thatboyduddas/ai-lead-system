@@ -1,8 +1,8 @@
-// Duddas CRM v6.0.3 - Chrome Extension with AI Assistant
+// Duddas CRM v6.0.4 - Chrome Extension with AI Assistant
 // Fixed for SalesGod's actual HTML structure
 
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
-const VERSION = "6.0.3";
+const VERSION = "6.0.4";
 let lastSentHash = "";
 let lastFullSyncHash = "";
 let currentPhone = null;
@@ -243,7 +243,7 @@ function sendToDashboard(data, forceFullSync = false, bypassSyncCheck = false) {
 
 let lastQuoteCheckHash = '';
 
-function checkForQuoteSent(data) {
+async function checkForQuoteSent(data) {
   if (!data.phone || !data.messages || data.messages.length === 0) return;
 
   // Look for recent outgoing messages with price patterns
@@ -258,12 +258,18 @@ function checkForQuoteSent(data) {
       lastQuoteCheckHash = hash;
 
       console.log('💰 Quote detected - updating tags');
-      // Call API to remove Age/Gender tag and add Quoted tag
+
+      // 1. Apply "Quoted" tag in SalesGod UI
+      const tagApplied = await applyTag('Quoted');
+      if (tagApplied) {
+        showNotif('✅ Tagged as Quoted', 'success');
+      }
+
+      // 2. Update our database
       fetch(DASHBOARD_URL + '/api/leads/' + encodeURIComponent(data.phone.replace(/[^0-9+]/g, '')) + '/quote-sent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       }).then(() => {
-        showNotif('✅ Tagged as Quoted', 'success');
         resetSuggestionState(); // Refresh suggestion
         updateAIBoxLeadInfo();
       }).catch(err => {
