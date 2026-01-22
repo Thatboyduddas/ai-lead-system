@@ -1351,6 +1351,20 @@
       margin-top: 4px;
     }
 
+    .main-calendar-section {
+      background: linear-gradient(135deg, rgba(30, 58, 95, 0.4) 0%, rgba(13, 20, 36, 0.6) 100%);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+    .gcal-setup h3 {
+      font-size: 18px;
+      color: #fff;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
     .calendly-section, .gcal-section {
       background: linear-gradient(135deg, rgba(30, 58, 95, 0.4) 0%, rgba(13, 20, 36, 0.6) 100%);
       backdrop-filter: blur(20px);
@@ -2233,51 +2247,34 @@
       <div class="calendar-header">
         <h2>Calendar & Follow-ups</h2>
         <div class="calendar-actions">
-          <button class="btn btn-blue" onclick="window.open(calendlyUrl, '_blank')">Open Calendly</button>
-          <button class="btn btn-secondary" onclick="refreshCalendar()">Refresh</button>
+          <button class="btn btn-blue" onclick="window.open(calendlyUrl, '_blank')">Book via Calendly</button>
         </div>
       </div>
 
-      <!-- Calendar Grid -->
-      <div class="calendar-container">
-        <div class="calendar-nav">
-          <button onclick="changeMonth(-1)">&lt;</button>
-          <h3 id="calendar-month-year"></h3>
-          <button onclick="changeMonth(1)">&gt;</button>
+      <!-- Google Calendar as Main Calendar -->
+      <div class="main-calendar-section">
+        <div class="gcal-setup" id="gcal-setup">
+          <h3>Connect Your Google Calendar</h3>
+          <p style="color:#a1a1aa;font-size:13px;margin-bottom:16px;">Since your Calendly syncs with Google Calendar, your bookings will show here automatically.</p>
+          <div class="calendly-setup-row">
+            <input type="text" id="gcal-embed-url" placeholder="Paste your Google Calendar email (e.g., yourname@gmail.com)" onchange="saveGcalUrl()">
+            <button class="btn btn-blue" onclick="embedGoogleCalendar()">Show Calendar</button>
+          </div>
         </div>
-        <div class="calendar-grid">
-          <div class="calendar-day-header">Sun</div>
-          <div class="calendar-day-header">Mon</div>
-          <div class="calendar-day-header">Tue</div>
-          <div class="calendar-day-header">Wed</div>
-          <div class="calendar-day-header">Thu</div>
-          <div class="calendar-day-header">Fri</div>
-          <div class="calendar-day-header">Sat</div>
-          <div id="calendar-days"></div>
-        </div>
+        <div id="gcal-embed-container"></div>
       </div>
 
-      <!-- Calendly Embed -->
-      <div class="calendly-section">
-        <h3>Calendly</h3>
+      <!-- Calendly for booking -->
+      <div class="calendly-section" style="margin-top:24px;">
+        <h3>Quick Book with Calendly</h3>
         <div class="calendly-setup-row">
           <input type="text" id="calendly-url" placeholder="Paste your Calendly URL (e.g., https://calendly.com/yourname)" onchange="saveCalendlyUrl()">
-          <button class="btn btn-blue" onclick="embedCalendly()">Embed</button>
+          <button class="btn btn-blue" onclick="embedCalendly()">Show Booking Widget</button>
         </div>
         <div id="calendly-embed-container" style="margin-top:16px;"></div>
       </div>
 
-      <!-- Google Calendar Embed -->
-      <div class="gcal-section">
-        <h3>Google Calendar</h3>
-        <div class="calendly-setup-row">
-          <input type="text" id="gcal-embed-url" placeholder="Paste Google Calendar embed URL or email" onchange="saveGcalUrl()">
-          <button class="btn btn-blue" onclick="embedGoogleCalendar()">Embed</button>
-        </div>
-        <div id="gcal-embed-container" style="margin-top:16px;"></div>
-      </div>
-
-      <div class="followup-section">
+      <div class="followup-section" style="margin-top:24px;">
         <h3>Follow-up Needed</h3>
         <div id="followups-list"></div>
       </div>
@@ -2529,28 +2526,40 @@
       }
     }
 
-    function embedGoogleCalendar() {
+    function embedGoogleCalendar(autoLoad = false) {
       const input = document.getElementById('gcal-embed-url').value;
       if (!input) {
-        showToast('Enter your Google Calendar email or embed URL', 'error');
+        if (!autoLoad) showToast('Enter your Google Calendar email or embed URL', 'error');
         return;
       }
       localStorage.setItem('gcalUrl', input);
 
       let embedUrl;
-      if (input.includes('calendar.google.com')) {
+      if (input.includes('calendar.google.com/calendar/embed')) {
+        // Already an embed URL
         embedUrl = input;
       } else if (input.includes('@')) {
         // It's an email, create embed URL
-        embedUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(input)}&ctz=America/New_York&mode=WEEK&bgcolor=%231a1a2e`;
+        embedUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(input)}&ctz=America/New_York&mode=WEEK&showTitle=0&showPrint=0&showCalendars=0&bgcolor=%23121212`;
       } else {
-        embedUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(input)}&ctz=America/New_York&mode=WEEK&bgcolor=%231a1a2e`;
+        embedUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(input)}&ctz=America/New_York&mode=WEEK&showTitle=0&showPrint=0&showCalendars=0&bgcolor=%23121212`;
       }
 
+      // Hide setup, show calendar
+      document.getElementById('gcal-setup').style.display = 'none';
       document.getElementById('gcal-embed-container').innerHTML = `
-        <iframe src="${embedUrl}" width="100%" height="500" frameborder="0" scrolling="no" style="border-radius:12px;background:#1a1a2e;"></iframe>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <h3 style="color:#fff;margin:0;">Your Calendar</h3>
+          <button class="btn btn-secondary" onclick="changeCalendar()" style="font-size:12px;padding:8px 12px;">Change Calendar</button>
+        </div>
+        <iframe src="${embedUrl}" width="100%" height="600" frameborder="0" scrolling="no" style="border-radius:12px;border:1px solid rgba(59,130,246,0.3);"></iframe>
       `;
-      showToast('Google Calendar embedded!', 'success');
+      if (!autoLoad) showToast('Calendar loaded!', 'success');
+    }
+
+    function changeCalendar() {
+      document.getElementById('gcal-setup').style.display = 'block';
+      document.getElementById('gcal-embed-container').innerHTML = '';
     }
 
     function openCalendlyForLead(lead) {
@@ -3219,13 +3228,12 @@
       if (calendlyUrl) {
         document.getElementById('calendly-url').value = calendlyUrl;
       }
-      // Load Google Calendar URL
+      // Load Google Calendar URL and auto-embed
       const savedGcal = localStorage.getItem('gcalUrl');
       if (savedGcal) {
         document.getElementById('gcal-embed-url').value = savedGcal;
+        embedGoogleCalendar(true); // Auto-load
       }
-      // Initialize calendar grid
-      renderCalendar();
     });
 
     async function loadLeads() {
