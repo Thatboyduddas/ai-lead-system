@@ -938,6 +938,30 @@ function parseSalesGodMessage(rawMessage) {
   };
 }
 
+// Parse ALL messages from messages_as_string (multiple messages separated by newlines)
+function parseAllMessagesFromString(messagesString) {
+  if (!messagesString) return [];
+
+  const messages = [];
+  // Split by newlines
+  const lines = messagesString.split(/\n|\r\n/).filter(l => l.trim());
+
+  for (const line of lines) {
+    const parsed = parseSalesGodMessage(line.trim());
+    if (parsed.text) {
+      messages.push({
+        text: parsed.text,
+        isOutgoing: parsed.isOutgoing,
+        timestamp: parsed.timestamp || new Date().toISOString(),
+        salesgodId: parsed.msgId
+      });
+    }
+  }
+
+  console.log(`📨 Parsed ${messages.length} messages from messages_as_string`);
+  return messages;
+}
+
 // ============ SEND MESSAGE TO SALESGOD ============
 async function sendMessageToSalesGod(phone, message, leadName = '') {
   if (!SALESGOD_WEBHOOK_URL || !SALESGOD_TOKEN) {
@@ -1046,6 +1070,13 @@ app.post('/webhook/salesgod', async (req, res) => {
           console.log('Messages is string, not JSON array');
         }
       }
+    }
+
+    // If no structured messages, try parsing messages_as_string
+    // SalesGod format: "msgId - direction - content - timestamp" (newline separated)
+    if (parsedMessages.length === 0 && messages_as_string && messages_as_string.includes('\n')) {
+      console.log('📄 Parsing messages_as_string (multi-line format)...');
+      parsedMessages = parseAllMessagesFromString(messages_as_string);
     }
 
     // If we got structured messages from SalesGod, use fullSync mode
