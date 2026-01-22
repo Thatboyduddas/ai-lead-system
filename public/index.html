@@ -1484,106 +1484,6 @@
       margin-top: 24px;
     }
 
-    /* Quote Calculator */
-    .quote-calculator {
-      background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, var(--glass-bg) 100%);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--border-accent);
-      border-radius: var(--radius-lg);
-      padding: 22px;
-      margin-bottom: 18px;
-      box-shadow: var(--shadow-md);
-    }
-    .quote-calculator h4 {
-      font-size: 14px;
-      color: var(--gold-primary);
-      margin-bottom: 18px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .quote-inputs {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-      margin-bottom: 18px;
-    }
-    .quote-input label {
-      display: block;
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-    .quote-input input {
-      width: 100%;
-      padding: 12px;
-      background: var(--glass-bg);
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-md);
-      color: #fff;
-      font-size: 16px;
-      font-weight: 600;
-      text-align: center;
-      transition: all 0.25s ease;
-    }
-    .quote-input input:focus {
-      outline: none;
-      border-color: var(--gold-primary);
-      box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.15);
-    }
-    .quote-results {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-    }
-    .plan-card {
-      background: rgba(30, 41, 59, 0.6);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      padding: 16px;
-      text-align: center;
-      transition: all 0.25s ease;
-    }
-    .plan-card:hover {
-      transform: translateY(-2px);
-    }
-    .plan-card.recommended {
-      border: 2px solid var(--gold-primary);
-      background: rgba(251, 191, 36, 0.1);
-      box-shadow: var(--shadow-glow-gold);
-    }
-    .plan-name {
-      font-size: 12px;
-      color: var(--text-secondary);
-      margin-bottom: 6px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .plan-price {
-      font-size: 28px;
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: -1px;
-    }
-    .plan-price span {
-      font-size: 13px;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
-    .plan-details {
-      font-size: 11px;
-      color: var(--text-muted);
-      margin-top: 10px;
-      line-height: 1.5;
-    }
-
     /* Smooth transitions for all interactive elements */
     * {
       -webkit-tap-highlight-color: transparent;
@@ -2063,36 +1963,6 @@
       }
     }
 
-    // ============ QUOTE CALCULATOR ============
-    async function calculateQuote() {
-      const adults = parseInt(document.getElementById('quote-adults').value) || 1;
-      const kids = parseInt(document.getElementById('quote-kids').value) || 0;
-      const age = parseInt(document.getElementById('quote-age').value) || 35;
-
-      try {
-        const res = await fetch('/api/quote', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adults, kids, youngestAge: age })
-        });
-        const data = await res.json();
-
-        document.getElementById('quote-results').innerHTML = data.plans.map((plan, i) => `
-          <div class="plan-card ${i === 1 ? 'recommended' : ''}">
-            <div class="plan-name">${plan.name}${i === 1 ? ' (Popular)' : ''}</div>
-            <div class="plan-price">$${plan.price}<span>/mo</span></div>
-            <div class="plan-details">
-              $${plan.deductible} deductible<br>
-              $${plan.copay.primary} copay<br>
-              $${plan.maxOutOfPocket} max OOP
-            </div>
-          </div>
-        `).join('');
-      } catch (err) {
-        console.error('Error calculating quote:', err);
-      }
-    }
-
     // ============ EXISTING FUNCTIONS ============
     function toggleAutoSend() {
       autoSendEnabled = document.getElementById('auto-send-toggle').checked;
@@ -2325,26 +2195,6 @@
         </div>
 
         <div class="action-area">
-          <!-- Quote Calculator -->
-          <div class="quote-calculator">
-            <h4>Quick Quote Calculator</h4>
-            <div class="quote-inputs">
-              <div class="quote-input">
-                <label>Adults</label>
-                <input type="number" id="quote-adults" value="${lead.parsedData?.adults || 1}" min="1" max="10" onchange="calculateQuote()">
-              </div>
-              <div class="quote-input">
-                <label>Kids</label>
-                <input type="number" id="quote-kids" value="${lead.parsedData?.kids || 0}" min="0" max="10" onchange="calculateQuote()">
-              </div>
-              <div class="quote-input">
-                <label>Age (youngest adult)</label>
-                <input type="number" id="quote-age" value="${lead.parsedData?.youngestAge || 35}" min="18" max="64" onchange="calculateQuote()">
-              </div>
-            </div>
-            <div class="quote-results" id="quote-results"></div>
-          </div>
-
           ${lead.copyMessage ? `
             <div class="copy-suggestion">
               <div class="copy-suggestion-header">
@@ -2410,7 +2260,6 @@
       setTimeout(() => {
         const container = document.getElementById('messages-container');
         if (container) container.scrollTop = container.scrollHeight;
-        calculateQuote();
       }, 50);
     }
 
