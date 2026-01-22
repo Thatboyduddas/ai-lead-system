@@ -1137,6 +1137,17 @@ app.post('/api/clear', async (req, res) => {
   }
 });
 
+// Delete a specific lead
+app.delete('/api/leads/:phone', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+  try {
+    await pool.query('DELETE FROM leads WHERE phone = $1', [phone]);
+    res.json({ success: true, deleted: phone });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ============ AUTO-SEND SETTINGS ============
 let autoSendEnabled = false;
 
