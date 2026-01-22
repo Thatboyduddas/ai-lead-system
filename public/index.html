@@ -2720,6 +2720,9 @@
       }
 
       // Send to webhook to process
+      const phoneToReload = selectedLead.phone;
+      const shouldAutoSend = autoSendEnabled;
+
       fetch('/webhook/salesgod', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2730,12 +2733,22 @@
           status: selectedLead.currentTag,
           isOutgoing: false
         })
-      }).then(() => {
+      }).then(async () => {
         showToast('Lead replied!', 'info');
-        setTimeout(() => {
-          loadLeads();
-          setTimeout(() => openLead(selectedLead.phone), 300);
-        }, 500);
+
+        // Wait for server to process
+        await new Promise(r => setTimeout(r, 800));
+        await loadLeads();
+        await new Promise(r => setTimeout(r, 400));
+        openLead(phoneToReload);
+
+        // AUTO-SEND if enabled
+        if (shouldAutoSend) {
+          await new Promise(r => setTimeout(r, 1000));
+          showToast('Auto-sending response...', 'success');
+          await new Promise(r => setTimeout(r, 300));
+          simulateSendMessage();
+        }
       });
     }
 
@@ -3168,26 +3181,6 @@
               </div>
             `).join('')
           }
-        </div>
-
-        <!-- Simulation Mode: Type as Lead -->
-        <div class="simulation-box">
-          <div class="simulation-header">
-            <span class="simulation-label">SIMULATE LEAD REPLY</span>
-            <span class="simulation-badge">TEST MODE</span>
-          </div>
-          <div class="simulation-input-row">
-            <input type="text" id="simulate-lead-input" placeholder="Type what the lead would say... (e.g. 'yes' or '35 male')" onkeypress="if(event.key==='Enter')simulateLeadReply()">
-            <button class="simulate-btn" onclick="simulateLeadReply()">Send as Lead</button>
-          </div>
-          <div class="simulation-quick-replies">
-            <button onclick="quickSimulate('Yes')">Yes</button>
-            <button onclick="quickSimulate('Yeah I\\'m interested')">Interested</button>
-            <button onclick="quickSimulate('35 male')">35 male</button>
-            <button onclick="quickSimulate('42 female')">42 female</button>
-            <button onclick="quickSimulate('28 m and 26 f')">Couple</button>
-            <button onclick="quickSimulate('45 m wife is 43 2 kids')">Family</button>
-          </div>
         </div>
 
         <div class="action-area">
