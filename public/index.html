@@ -3594,14 +3594,41 @@
               </div>
             </div>
           ` : lead.category === 'waiting' ? `
-            <div class="waiting-state">
-              <span>Waiting for lead response - use simulation above to test</span>
+            <div class="copy-suggestion">
+              <div class="copy-suggestion-header">
+                <span class="copy-suggestion-title">SEND FOLLOW-UP</span>
+                <span class="copy-suggestion-tag" style="background:#3b82f6;">Waiting for reply</span>
+              </div>
+              <textarea class="editable-response" id="editable-response" rows="3" placeholder="Type a follow-up message..."></textarea>
+              <div class="send-buttons">
+                <button class="copy-btn" onclick="copyEditedMessage()">Copy</button>
+                <button class="send-btn" id="send-to-salesgod-btn" onclick="sendToSalesGod()">📤 Send to SalesGod</button>
+              </div>
             </div>
           ` : lead.category === 'dead' ? `
-            <div class="dead-state">
-              <span>Not interested - no action needed</span>
+            <div class="copy-suggestion">
+              <div class="copy-suggestion-header">
+                <span class="copy-suggestion-title">RE-ENGAGE</span>
+                <span class="copy-suggestion-tag" style="background:#ef4444;">Dead lead</span>
+              </div>
+              <textarea class="editable-response" id="editable-response" rows="2" placeholder="Send a re-engagement message..."></textarea>
+              <div class="send-buttons">
+                <button class="copy-btn" onclick="copyEditedMessage()">Copy</button>
+                <button class="send-btn" id="send-to-salesgod-btn" onclick="sendToSalesGod()">📤 Send to SalesGod</button>
+              </div>
             </div>
-          ` : ''}
+          ` : `
+            <div class="copy-suggestion">
+              <div class="copy-suggestion-header">
+                <span class="copy-suggestion-title">SEND MESSAGE</span>
+              </div>
+              <textarea class="editable-response" id="editable-response" rows="3" placeholder="Type your message..."></textarea>
+              <div class="send-buttons">
+                <button class="copy-btn" onclick="copyEditedMessage()">Copy</button>
+                <button class="send-btn" id="send-to-salesgod-btn" onclick="sendToSalesGod()">📤 Send to SalesGod</button>
+              </div>
+            </div>
+          `}
           <div class="quick-actions">
             <button class="action-btn" onclick="markAction('Sent message')">Sent Msg</button>
             <button class="action-btn" onclick="markAction('Left voicemail')">Voicemail</button>
