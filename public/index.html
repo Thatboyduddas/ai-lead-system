@@ -2947,7 +2947,12 @@
         updateStats();
         renderLeads();
         loadFollowups();
-        if (selectedLead) {
+
+        // Only refresh open lead if user is NOT typing in an input
+        const activeElement = document.activeElement;
+        const isTyping = activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA');
+
+        if (selectedLead && !isTyping) {
           const updated = leads.find(l => l.phone === selectedLead.phone);
           if (updated) openLead(updated.phone);
         }
