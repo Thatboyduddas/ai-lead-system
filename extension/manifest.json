@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Duddas CRM - MAGA Edition 🇺🇸",
-  "version": "4.0",
-  "description": "Making Insurance Great Again! Auto-tags and sends messages via SalesGod CRM",
+  "version": "5.0",
+  "description": "Queue-based auto-send! Auto-navigates to leads and sends messages from your dashboard.",
   "permissions": ["storage"],
   "host_permissions": ["https://www.salesgodcrm.net/*", "https://ai-lead-system-production-df0a.up.railway.app/*"],
   "content_scripts": [

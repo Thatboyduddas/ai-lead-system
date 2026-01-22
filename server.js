@@ -1144,14 +1144,114 @@ app.post('/api/settings/auto-send', (req, res) => {
 });
 
 // ============ PENDING MESSAGES FOR AUTO-SEND ============
+
+// Get ALL pending messages in the queue (for extension auto-send)
+app.get('/api/queue/pending', async (req, res) => {
+  try {
+    const leads = await getAllLeads();
+    const pending = leads
+      .filter(l => l.pendingMessage)
+      .map(l => ({
+        phone: l.phone,
+        name: l.name,
+        message: l.pendingMessage,
+        queuedAt: l.messageQueuedAt || new Date().toISOString()
+      }))
+      .sort((a, b) => new Date(a.queuedAt) - new Date(b.queuedAt)); // Oldest first
+
+    res.json({
+      count: pending.length,
+      queue: pending,
+      autoSendEnabled: autoSendEnabled
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get next message in queue (for extension to process one at a time)
+app.get('/api/queue/next', async (req, res) => {
+  if (!autoSendEnabled) {
+    return res.json({ pending: false, reason: 'auto-send disabled' });
+  }
+
+  try {
+    const leads = await getAllLeads();
+    const pending = leads
+      .filter(l => l.pendingMessage)
+      .sort((a, b) => new Date(a.messageQueuedAt || 0) - new Date(b.messageQueuedAt || 0));
+
+    if (pending.length > 0) {
+      const next = pending[0];
+      res.json({
+        pending: true,
+        phone: next.phone,
+        name: next.name,
+        message: next.pendingMessage,
+        queueLength: pending.length
+      });
+    } else {
+      res.json({ pending: false, queueLength: 0 });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mark a queued message as sent
+app.post('/api/queue/sent', async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) {
+    return res.status(400).json({ success: false, error: 'Phone required' });
+  }
+
+  const cleanPhone = phone.replace(/[^0-9+]/g, '');
+
+  try {
+    const lead = await getLead(cleanPhone);
+    if (lead) {
+      const sentMessage = lead.pendingMessage;
+      delete lead.pendingMessage;
+      delete lead.messageQueuedAt;
+
+      // Add to sent history
+      if (!lead.sentMessages) lead.sentMessages = [];
+      lead.sentMessages.push({
+        message: sentMessage,
+        sentAt: new Date().toISOString(),
+        sentVia: 'extension-queue'
+      });
+
+      // Add as outgoing message
+      lead.messages.push({
+        text: sentMessage,
+        timestamp: new Date().toISOString(),
+        isOutgoing: true,
+        sentVia: 'extension-queue'
+      });
+
+      lead.lastMessageAt = new Date().toISOString();
+      lead.category = 'waiting';
+      lead.suggestedAction = '⏳ Waiting for response';
+
+      await saveLead(cleanPhone, lead);
+      res.json({ success: true, message: 'Marked as sent' });
+    } else {
+      res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/leads/:phone/pending', async (req, res) => {
   // Only return pending if auto-send is enabled
   if (!autoSendEnabled) {
     return res.json({ pending: false, reason: 'auto-send disabled' });
   }
-  
+
   const phone = req.params.phone.replace(/[^0-9+]/g, '');
-  
+
   try {
     const lead = await getLead(phone);
     if (lead && lead.pendingMessage) {
@@ -1167,13 +1267,14 @@ app.get('/api/leads/:phone/pending', async (req, res) => {
 app.post('/api/leads/:phone/pending', async (req, res) => {
   const phone = req.params.phone.replace(/[^0-9+]/g, '');
   const { message } = req.body;
-  
+
   try {
     const lead = await getLead(phone);
     if (lead) {
       lead.pendingMessage = message;
+      lead.messageQueuedAt = new Date().toISOString();
       await saveLead(phone, lead);
-      res.json({ success: true });
+      res.json({ success: true, queuedAt: lead.messageQueuedAt });
     } else {
       res.status(404).json({ success: false, error: 'Lead not found' });
     }
