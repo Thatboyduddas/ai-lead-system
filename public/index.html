@@ -2518,16 +2518,103 @@
           })
         });
 
-        showToast('Message sent (simulated)!', 'success');
+        showToast('Message sent!', 'success');
 
-        // Reload to update state
+        // Auto-generate lead reply after a delay
+        setTimeout(() => {
+          autoGenerateLeadReply(messageText);
+        }, 1500);
+
+      } catch (err) {
+        console.error('Simulation error:', err);
+      }
+    }
+
+    function autoGenerateLeadReply(sentMessage) {
+      if (!selectedLead) return;
+
+      const msgLower = sentMessage.toLowerCase();
+      let leadReply = '';
+
+      // Determine context-appropriate reply
+      if (msgLower.includes('age') || msgLower.includes('how old') || msgLower.includes('age and gender')) {
+        // Asked for age - reply with age/gender
+        const replies = [
+          '35 male',
+          '42 female',
+          '38 m',
+          '29 female just me',
+          '45 male and my wife is 43',
+          '52 f',
+          '33 male 2 kids'
+        ];
+        leadReply = replies[Math.floor(Math.random() * replies.length)];
+      } else if (msgLower.includes('qualify for plans') || msgLower.includes('$') || msgLower.includes('deductible')) {
+        // Sent a quote - reply with interest/questions
+        const replies = [
+          'Sounds good, what are the next steps?',
+          'Ok that works. When can we talk?',
+          'Thats in my budget. How do I sign up?',
+          'Can you call me to go over this?',
+          'What time works for a call?',
+          'Looks good! Im free tomorrow afternoon',
+          'Perfect. Lets set something up'
+        ];
+        leadReply = replies[Math.floor(Math.random() * replies.length)];
+      } else if (msgLower.includes('call') || msgLower.includes('schedule') || msgLower.includes('appointment')) {
+        // Asking to schedule
+        const replies = [
+          'Tomorrow at 2pm works',
+          'Im free after 5pm today',
+          'How about Thursday morning?',
+          'Yes call me anytime',
+          'Lets do 10am tomorrow'
+        ];
+        leadReply = replies[Math.floor(Math.random() * replies.length)];
+      } else {
+        // Generic positive response
+        const replies = [
+          'Yes',
+          'Ok sounds good',
+          'Sure',
+          'Alright',
+          'Yeah that works',
+          'Ok'
+        ];
+        leadReply = replies[Math.floor(Math.random() * replies.length)];
+      }
+
+      // Add the reply visually
+      const container = document.getElementById('messages-container');
+      if (container) {
+        const msgBubble = document.createElement('div');
+        msgBubble.className = 'message-bubble incoming sending-animation';
+        msgBubble.innerHTML = `
+          <div style="white-space: pre-wrap;">${leadReply}</div>
+          <div class="message-time">Lead | ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+        `;
+        container.appendChild(msgBubble);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      // Send to webhook to process
+      fetch('/webhook/salesgod', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: selectedLead.phone,
+          full_name: selectedLead.name,
+          messages_as_string: leadReply,
+          status: selectedLead.currentTag,
+          isOutgoing: false
+        })
+      }).then(() => {
+        showToast('Lead replied!', 'info');
         setTimeout(() => {
           loadLeads();
           setTimeout(() => openLead(selectedLead.phone), 300);
         }, 500);
-      } catch (err) {
-        console.error('Simulation error:', err);
-      }
+      });
     }
 
     function copyEditedMessage() {
