@@ -881,10 +881,14 @@ app.post('/api/leads/:phone/tag', async (req, res) => {
   try {
     const lead = await getLead(phone);
     if (lead) {
+      // Replace the current tag - progression not stacking
+      lead.currentTag = tag;
       lead.tagToApply = tag;
       lead.tagApplied = false;
+      lead.tagHistory = lead.tagHistory || [];
+      lead.tagHistory.push({ tag, timestamp: new Date().toISOString() });
       await saveLead(phone, lead);
-      res.json({ success: true, tagToApply: tag });
+      res.json({ success: true, tagToApply: tag, currentTag: tag });
     } else {
       res.status(404).json({ success: false, error: 'Lead not found' });
     }
