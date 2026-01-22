@@ -1099,12 +1099,20 @@ app.post('/api/leads/:phone/tags', async (req, res) => {
   try {
     const lead = await getLead(phone);
     if (lead) {
+      const oldTag = lead.currentTag;
       lead.tags = tags || [];
       // Set currentTag to the last tag in the array (most recent)
       lead.currentTag = tags && tags.length > 0 ? tags[tags.length - 1] : null;
       lead.tagToApply = lead.currentTag;
+
+      // Reset tagApplied if tag changed - so it syncs to SalesGod
+      if (lead.tagToApply !== oldTag) {
+        lead.tagApplied = false;
+        console.log(`Tag changed from ${oldTag} to ${lead.tagToApply} - will sync to SalesGod`);
+      }
+
       await saveLead(phone, lead);
-      res.json({ success: true, tags: lead.tags });
+      res.json({ success: true, tags: lead.tags, tagToApply: lead.tagToApply });
     } else {
       res.status(404).json({ success: false, error: 'Lead not found' });
     }
