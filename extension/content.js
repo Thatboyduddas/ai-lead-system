@@ -1,9 +1,10 @@
-// Duddas CRM v3.5 - Chrome Extension
+// Duddas CRM v4.0 - Chrome Extension with Auto-Tag Automation
 
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
 let lastSentHash = "";
 let currentPhone = null;
 let pendingInProgress = false;
+let tagInProgress = false;
 
 function extractConversationData() {
   let contactName = "";
@@ -165,8 +166,170 @@ function checkAndSync() {
   if (data.messages.length > 0 && data.phone) sendToDashboard(data);
 }
 
-console.log("🚀 Duddas CRM v3.5");
+// ============================================
+// TAG AUTOMATION - Auto-apply SalesGod tags
+// ============================================
+
+function findTagDropdown() {
+  // Look for common dropdown patterns in SalesGod
+  // Method 1: Look for select elements with tag-related options
+  const selects = document.querySelectorAll('select');
+  for (const select of selects) {
+    const options = select.querySelectorAll('option');
+    for (const opt of options) {
+      if (opt.textContent.toLowerCase().includes('age and gender') ||
+          opt.textContent.toLowerCase().includes('quoted') ||
+          opt.textContent.toLowerCase().includes('follow up')) {
+        return { type: 'select', element: select };
+      }
+    }
+  }
+
+  // Method 2: Look for custom dropdown buttons (common in modern UIs)
+  const buttons = document.querySelectorAll('button, [role="button"], [role="combobox"]');
+  for (const btn of buttons) {
+    const text = btn.innerText?.toLowerCase() || '';
+    const ariaLabel = btn.getAttribute('aria-label')?.toLowerCase() || '';
+    if (text.includes('tag') || text.includes('workflow') || text.includes('status') ||
+        ariaLabel.includes('tag') || ariaLabel.includes('workflow')) {
+      return { type: 'button', element: btn };
+    }
+  }
+
+  // Method 3: Look for dropdown by class patterns
+  const dropdowns = document.querySelectorAll('[class*="dropdown"], [class*="select"], [class*="tag"]');
+  for (const dd of dropdowns) {
+    if (dd.innerText?.toLowerCase().includes('quoted') ||
+        dd.innerText?.toLowerCase().includes('age and gender')) {
+      return { type: 'custom', element: dd };
+    }
+  }
+
+  // Method 4: Look for the specific dropdown trigger near the conversation
+  const allClickables = document.querySelectorAll('div[class*="cursor-pointer"], span[class*="cursor-pointer"]');
+  for (const el of allClickables) {
+    const text = el.innerText?.trim() || '';
+    if (text.match(/^(Quoted|Age and gender|Follow up|Ghosted|Deadline|Sold|Dead|New|Medicare)/i)) {
+      return { type: 'trigger', element: el };
+    }
+  }
+
+  return null;
+}
+
+async function clickTagOption(tagName) {
+  // Wait a moment for dropdown to open
+  await new Promise(r => setTimeout(r, 300));
+
+  // Look for the option in the now-open dropdown
+  const allOptions = document.querySelectorAll(
+    'li, [role="option"], [role="menuitem"], option, ' +
+    'div[class*="option"], div[class*="item"], span[class*="option"]'
+  );
+
+  for (const opt of allOptions) {
+    const text = opt.innerText?.trim().toLowerCase() || '';
+    const targetTag = tagName.toLowerCase();
+
+    if (text === targetTag || text.includes(targetTag)) {
+      opt.click();
+      showNotif(`✅ Applied: ${tagName}`, "success");
+      return true;
+    }
+  }
+
+  // Also check for labels/text nodes
+  const walker = document.createTreeWalker(
+    document.body,
+    NodeFilter.SHOW_TEXT,
+    null,
+    false
+  );
+
+  while (walker.nextNode()) {
+    if (walker.currentNode.textContent?.trim().toLowerCase() === tagName.toLowerCase()) {
+      const parent = walker.currentNode.parentElement;
+      if (parent && parent.offsetParent !== null) {
+        parent.click();
+        showNotif(`✅ Applied: ${tagName}`, "success");
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+async function applyTag(tagName) {
+  const dropdown = findTagDropdown();
+
+  if (!dropdown) {
+    showNotif("⚠️ Tag dropdown not found", "error");
+    return false;
+  }
+
+  const { type, element } = dropdown;
+
+  if (type === 'select') {
+    // Native select element
+    const options = element.querySelectorAll('option');
+    for (const opt of options) {
+      if (opt.textContent.toLowerCase().includes(tagName.toLowerCase())) {
+        element.value = opt.value;
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        showNotif(`✅ Applied: ${tagName}`, "success");
+        return true;
+      }
+    }
+  } else {
+    // Custom dropdown - click to open, then click option
+    element.click();
+    await new Promise(r => setTimeout(r, 500));
+
+    const applied = await clickTagOption(tagName);
+    if (applied) return true;
+
+    // If not found, try clicking the element again (might be a toggle)
+    element.click();
+    await new Promise(r => setTimeout(r, 300));
+    return await clickTagOption(tagName);
+  }
+
+  showNotif(`❌ Tag "${tagName}" not found`, "error");
+  return false;
+}
+
+async function checkPendingTags() {
+  if (!currentPhone || tagInProgress) return;
+  tagInProgress = true;
+
+  try {
+    const res = await fetch(DASHBOARD_URL + `/api/leads/${encodeURIComponent(currentPhone)}/tag`);
+    const data = await res.json();
+
+    if (data.tagToApply) {
+      const success = await applyTag(data.tagToApply);
+      if (success) {
+        // Mark tag as applied
+        await fetch(DASHBOARD_URL + `/api/leads/${encodeURIComponent(currentPhone)}/tag`, {
+          method: 'DELETE'
+        });
+      }
+    }
+  } catch (err) {
+    // Silently fail - endpoint might not exist yet
+  }
+
+  tagInProgress = false;
+}
+
+// ============================================
+// INITIALIZATION
+// ============================================
+
+console.log("🚀 Duddas CRM v4.0 - Tag Automation Enabled");
 setInterval(checkAndSync, 3000);
 setInterval(checkPendingSends, 3000);
+setInterval(checkPendingTags, 2000);  // Check for tags to apply
 document.addEventListener("click", () => setTimeout(checkAndSync, 500));
 setTimeout(checkAndSync, 1000);

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Duddas CRM - MAGA Edition 🇺🇸",
-  "version": "3.0",
-  "description": "Making Insurance Great Again! Sends SalesGod messages to Duddas CRM Dashboard",
+  "version": "4.0",
+  "description": "Making Insurance Great Again! Auto-tags and sends messages via SalesGod CRM",
   "permissions": ["storage"],
   "host_permissions": ["https://www.salesgodcrm.net/*", "https://ai-lead-system-production-df0a.up.railway.app/*"],
   "content_scripts": [

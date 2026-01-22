@@ -30,7 +30,7 @@ async function initDB() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log('🇺🇸 Duddas CRM v3.0 Database initialized');
+    console.log('🇺🇸 Duddas CRM v4.0 Database initialized');
   } catch (err) {
     console.error('Database init error:', err);
   }
@@ -816,11 +816,85 @@ app.post('/api/leads/:phone/pending', async (req, res) => {
 
 app.delete('/api/leads/:phone/pending', async (req, res) => {
   const phone = req.params.phone.replace(/[^0-9+]/g, '');
-  
+
   try {
     const lead = await getLead(phone);
     if (lead) {
       delete lead.pendingMessage;
+      await saveLead(phone, lead);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============ TAG AUTOMATION FOR SALESGOD ============
+let autoTagEnabled = false;
+
+app.get('/api/settings/auto-tag', (req, res) => {
+  res.json({ enabled: autoTagEnabled });
+});
+
+app.post('/api/settings/auto-tag', (req, res) => {
+  autoTagEnabled = req.body.enabled === true;
+  console.log('Auto-tag:', autoTagEnabled ? 'ON' : 'OFF');
+  res.json({ enabled: autoTagEnabled });
+});
+
+// Get pending tag for a lead (extension polls this)
+app.get('/api/leads/:phone/tag', async (req, res) => {
+  // Only return tag if auto-tag is enabled
+  if (!autoTagEnabled) {
+    return res.json({ tagToApply: null, reason: 'auto-tag disabled' });
+  }
+
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+
+  try {
+    const lead = await getLead(phone);
+    if (lead && lead.tagToApply && !lead.tagApplied) {
+      res.json({ tagToApply: lead.tagToApply });
+    } else {
+      res.json({ tagToApply: null });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manually set a tag to apply (from dashboard)
+app.post('/api/leads/:phone/tag', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+  const { tag } = req.body;
+
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      lead.tagToApply = tag;
+      lead.tagApplied = false;
+      await saveLead(phone, lead);
+      res.json({ success: true, tagToApply: tag });
+    } else {
+      res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Clear tag after extension applies it
+app.delete('/api/leads/:phone/tag', async (req, res) => {
+  const phone = req.params.phone.replace(/[^0-9+]/g, '');
+
+  try {
+    const lead = await getLead(phone);
+    if (lead) {
+      lead.tagApplied = true;
+      lead.tagAppliedAt = new Date().toISOString();
+      // Don't delete tagToApply - keep for history
       await saveLead(phone, lead);
       res.json({ success: true });
     } else {

@@ -707,6 +707,72 @@
       transform: translateY(-2px);
     }
 
+    /* SalesGod Tags Section */
+    .salesgod-tags {
+      margin-bottom: 20px;
+      padding: 16px;
+      background: var(--glass-bg);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--glass-border);
+    }
+    .tags-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .tags-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--gold-primary);
+      letter-spacing: 0.5px;
+    }
+    .tags-status {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .tags-status.auto-on {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--green-primary);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+    .tags-status.auto-off {
+      background: rgba(156, 163, 175, 0.2);
+      color: var(--text-muted);
+      border: 1px solid rgba(156, 163, 175, 0.3);
+    }
+    .tag-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tag-btn {
+      padding: 8px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--glass-border);
+      background: rgba(13, 20, 36, 0.5);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    .tag-btn:hover {
+      background: rgba(37, 99, 235, 0.2);
+      border-color: var(--blue-primary);
+      color: #fff;
+    }
+    .tag-btn.active {
+      background: linear-gradient(135deg, var(--blue-primary), #1d4ed8);
+      border-color: var(--blue-primary);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
+    }
+
     /* Empty State */
     .no-lead-selected {
       display: flex;
@@ -1544,6 +1610,10 @@
           <input type="checkbox" id="auto-send-toggle" onchange="toggleAutoSend()">
           <span class="toggle-label">Auto-Send</span>
         </label>
+        <label class="toggle-container">
+          <input type="checkbox" id="auto-tag-toggle" onchange="toggleAutoTag()">
+          <span class="toggle-label">Auto-Tag</span>
+        </label>
         <button class="btn btn-secondary" onclick="clearLeads()">Clear</button>
         <button class="btn btn-secondary" onclick="simulateLead()">Test Lead</button>
         <button class="btn btn-primary" onclick="loadLeads()">Refresh</button>
@@ -2034,11 +2104,47 @@
       });
     }
 
+    let autoTagEnabled = false;
+    function toggleAutoTag() {
+      autoTagEnabled = document.getElementById('auto-tag-toggle').checked;
+      localStorage.setItem('autoTagEnabled', autoTagEnabled);
+      fetch('/api/settings/auto-tag', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: autoTagEnabled })
+      });
+    }
+
+    async function applyTagManual(phone, tag) {
+      try {
+        await fetch(`/api/leads/${encodeURIComponent(phone)}/tag`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tag })
+        });
+        showToast(`Tag "${tag}" queued for ${autoTagEnabled ? 'auto-apply' : 'manual apply'}`);
+        loadLeads();
+      } catch (err) {
+        console.error('Error setting tag:', err);
+      }
+    }
+
     window.addEventListener('load', () => {
       const saved = localStorage.getItem('autoSendEnabled');
       if (saved === 'true') {
         document.getElementById('auto-send-toggle').checked = true;
         autoSendEnabled = true;
+      }
+      const savedTag = localStorage.getItem('autoTagEnabled');
+      if (savedTag === 'true') {
+        document.getElementById('auto-tag-toggle').checked = true;
+        autoTagEnabled = true;
+        // Sync with server
+        fetch('/api/settings/auto-tag', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: true })
+        });
       }
       // Load calendly URL
       if (calendlyUrl) {
@@ -2275,6 +2381,22 @@
               <span>Not interested - no action needed</span>
             </div>
           ` : ''}
+          <div class="salesgod-tags">
+            <div class="tags-header">
+              <span class="tags-title">SalesGod Tags</span>
+              <span class="tags-status ${autoTagEnabled ? 'auto-on' : 'auto-off'}">${autoTagEnabled ? 'AUTO' : 'MANUAL'}</span>
+            </div>
+            <div class="tag-buttons">
+              <button class="tag-btn ${lead.tagToApply === 'Age and gender' ? 'active' : ''}" onclick="applyTagManual('${lead.phone}', 'Age and gender')">Age & Gender</button>
+              <button class="tag-btn ${lead.tagToApply === 'Quoted' ? 'active' : ''}" onclick="applyTagManual('${lead.phone}', 'Quoted')">Quoted</button>
+              <button class="tag-btn ${lead.tagToApply === 'Follow up' ? 'active' : ''}" onclick="applyTagManual('${lead.phone}', 'Follow up')">Follow Up</button>
+              <button class="tag-btn" onclick="applyTagManual('${lead.phone}', 'Ghosted')">Ghosted</button>
+              <button class="tag-btn" onclick="applyTagManual('${lead.phone}', 'Deadline')">Deadline</button>
+              <button class="tag-btn" onclick="applyTagManual('${lead.phone}', 'Sold')">Sold</button>
+              <button class="tag-btn" onclick="applyTagManual('${lead.phone}', 'Dead')">Dead</button>
+              <button class="tag-btn" onclick="applyTagManual('${lead.phone}', 'Medicare Referral')">Medicare</button>
+            </div>
+          </div>
           <div class="quick-actions">
             <button class="action-btn" onclick="markAction('Sent message')">Sent Msg</button>
             <button class="action-btn" onclick="markAction('Left voicemail')">Voicemail</button>
@@ -2290,6 +2412,32 @@
         if (container) container.scrollTop = container.scrollHeight;
         calculateQuote();
       }, 50);
+    }
+
+    function showToast(message, type = 'info') {
+      const existing = document.querySelector('.toast-notification');
+      if (existing) existing.remove();
+
+      const toast = document.createElement('div');
+      toast.className = 'toast-notification';
+      toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 14px 24px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        z-index: 99999;
+        animation: slideIn 0.3s ease;
+        background: ${type === 'error' ? 'rgba(220, 38, 38, 0.9)' : type === 'success' ? 'rgba(34, 197, 94, 0.9)' : 'rgba(37, 99, 235, 0.9)'};
+        color: white;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.1);
+      `;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
     }
 
     async function copyMessage(btn) {
