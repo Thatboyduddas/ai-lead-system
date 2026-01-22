@@ -1,7 +1,7 @@
-// Duddas Quotes v2.0 - Simple Quote Calculator
+// Duddas Quotes v2.0.1 - Simple Quote Calculator
 // No SalesGod integration - just quick quotes
 
-const VERSION = "2.0.0";
+const VERSION = "2.0.1";
 
 // ============================================
 // QUOTE CALCULATION
@@ -60,30 +60,27 @@ function generateQuoteMessage(lowPrice, highPrice) {
 // UI PANEL
 // ============================================
 
+function resetPanelPosition(panel) {
+  panel.style.top = '100px';
+  panel.style.left = '20px';
+  panel.style.bottom = 'auto';
+  localStorage.removeItem('duddas-quotes-pos');
+  showNotif('Position reset!', 'info');
+}
+
 function createQuotePanel() {
+  // Clear any bad saved position first
+  localStorage.removeItem('duddas-quotes-pos');
+
   const existing = document.getElementById('duddas-quotes');
   if (existing) existing.remove();
-
-  // Load saved position
-  const savedPos = JSON.parse(localStorage.getItem('duddas-quotes-pos') || 'null');
-  let startLeft = savedPos?.left || '20px';
-  let startBottom = savedPos?.bottom || '20px';
-
-  // Bounds check
-  const leftNum = parseInt(startLeft);
-  const bottomNum = parseInt(startBottom);
-  if (leftNum < 0 || leftNum > window.innerWidth - 100 || bottomNum < 0 || bottomNum > window.innerHeight - 100) {
-    startLeft = '20px';
-    startBottom = '20px';
-    localStorage.removeItem('duddas-quotes-pos');
-  }
 
   const panel = document.createElement('div');
   panel.id = 'duddas-quotes';
   panel.style.cssText = `
     position: fixed;
-    bottom: ${startBottom};
-    left: ${startLeft};
+    top: 100px;
+    left: 20px;
     background: linear-gradient(135deg, #0d1424, #1e293b);
     color: white;
     padding: 0;
@@ -105,7 +102,10 @@ function createQuotePanel() {
         <span style="font-weight:700;font-size:14px;">Duddas Quotes</span>
         <span style="font-size:10px;color:#a1a1aa;">v${VERSION}</span>
       </div>
-      <button id="duddas-minimize" style="background:none;border:none;color:#fff;cursor:pointer;font-size:16px;padding:0;">−</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="duddas-reset" title="Reset position" style="background:none;border:none;color:#fbbf24;cursor:pointer;font-size:12px;padding:0;">↺</button>
+        <button id="duddas-minimize" style="background:none;border:none;color:#fff;cursor:pointer;font-size:16px;padding:0;">−</button>
+      </div>
     </div>
 
     <div id="duddas-content" style="padding:16px;">
@@ -154,7 +154,7 @@ function createQuotePanel() {
 
   document.body.appendChild(panel);
 
-  // Make draggable
+  // Make draggable using TOP positioning (not bottom)
   const header = document.getElementById('duddas-header');
   let isDragging = false;
   let dragOffsetX = 0;
@@ -172,11 +172,16 @@ function createQuotePanel() {
 
   document.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
-    const newLeft = e.clientX - dragOffsetX;
-    const newTop = e.clientY - dragOffsetY;
-    const newBottom = window.innerHeight - newTop - panel.offsetHeight;
+    let newLeft = e.clientX - dragOffsetX;
+    let newTop = e.clientY - dragOffsetY;
+
+    // Keep panel in bounds
+    newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - 340));
+    newTop = Math.max(0, Math.min(newTop, window.innerHeight - 100));
+
     panel.style.left = newLeft + 'px';
-    panel.style.bottom = newBottom + 'px';
+    panel.style.top = newTop + 'px';
+    panel.style.bottom = 'auto';
   });
 
   document.addEventListener('mouseup', () => {
@@ -185,10 +190,13 @@ function createQuotePanel() {
       header.style.cursor = 'grab';
       localStorage.setItem('duddas-quotes-pos', JSON.stringify({
         left: panel.style.left,
-        bottom: panel.style.bottom
+        top: panel.style.top
       }));
     }
   });
+
+  // Reset position button
+  document.getElementById('duddas-reset').onclick = () => resetPanelPosition(panel);
 
   // Minimize toggle
   let isMinimized = false;
@@ -223,6 +231,18 @@ function createQuotePanel() {
     navigator.clipboard.writeText(text);
     showNotif('Copied!', 'success');
   };
+
+  // Load saved position after panel is created (use top positioning now)
+  const savedPos = JSON.parse(localStorage.getItem('duddas-quotes-pos') || 'null');
+  if (savedPos?.left && savedPos?.top) {
+    const leftNum = parseInt(savedPos.left);
+    const topNum = parseInt(savedPos.top);
+    // Only apply if in bounds
+    if (leftNum >= 0 && leftNum < window.innerWidth - 100 && topNum >= 0 && topNum < window.innerHeight - 100) {
+      panel.style.left = savedPos.left;
+      panel.style.top = savedPos.top;
+    }
+  }
 }
 
 function generateQuote() {
