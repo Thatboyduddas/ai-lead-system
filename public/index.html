@@ -268,7 +268,7 @@
     }
 
     /* Layout */
-    .main-layout { display: flex; height: calc(100vh - 57px); position: relative; }
+    .main-layout { display: flex; height: calc(100vh - 57px); }
 
     /* Sidebar */
     .leads-sidebar {
@@ -1351,16 +1351,11 @@
     .calendar-view {
       display: none;
       flex: 1;
+      flex-direction: column;
       padding: 32px;
       overflow-y: auto;
-      background: linear-gradient(180deg, var(--bg-primary) 0%, rgba(13, 20, 36, 0.5) 100%);
-      position: absolute;
-      left: 340px;
-      right: 0;
-      top: 0;
-      bottom: 0;
+      background: var(--bg-primary);
     }
-    .calendar-view.active { display: block; }
 
     .calendar-header {
       display: flex;
@@ -1689,16 +1684,11 @@
     .analytics-view {
       display: none;
       flex: 1;
+      flex-direction: column;
       padding: 32px;
       overflow-y: auto;
-      background: linear-gradient(180deg, var(--bg-primary) 0%, rgba(13, 20, 36, 0.5) 100%);
-      position: absolute;
-      left: 340px;
-      right: 0;
-      top: 0;
-      bottom: 0;
+      background: var(--bg-primary);
     }
-    .analytics-view.active { display: block; }
 
     .analytics-header {
       margin-bottom: 32px;
@@ -2210,13 +2200,6 @@
       }
 
       /* Calendar view */
-      .calendar-view {
-        position: relative;
-        left: 0;
-        top: auto;
-        bottom: auto;
-        right: auto;
-      }
       .calendar-content {
         padding: 16px;
       }
@@ -2226,13 +2209,6 @@
       }
 
       /* Analytics view */
-      .analytics-view {
-        position: relative;
-        left: 0;
-        top: auto;
-        bottom: auto;
-        right: auto;
-      }
       .analytics-content {
         padding: 16px;
       }
@@ -2406,7 +2382,7 @@
     </div>
 
     <!-- Calendar View -->
-    <div class="calendar-view" id="calendar-view" style="display:none;">
+    <div class="calendar-view" id="calendar-view">
       <div class="calendar-header">
         <h2>Calendar & Follow-ups</h2>
         <div class="calendar-actions">
@@ -2442,7 +2418,7 @@
     </div>
 
     <!-- Analytics View -->
-    <div class="analytics-view" id="analytics-view" style="display:none;">
+    <div class="analytics-view" id="analytics-view">
       <div class="analytics-header">
         <h2>Analytics Dashboard</h2>
         <p>Track your performance and conversion metrics</p>
@@ -2576,12 +2552,21 @@
       document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
       document.querySelector(`.nav-tab[onclick="switchView('${view}')"]`).classList.add('active');
 
-      document.getElementById('conversation-panel').style.display = view === 'leads' ? 'flex' : 'none';
-      document.getElementById('calendar-view').style.display = view === 'calendar' ? 'block' : 'none';
-      document.getElementById('analytics-view').style.display = view === 'analytics' ? 'block' : 'none';
+      // Hide all content panels first
+      document.getElementById('conversation-panel').style.display = 'none';
+      document.getElementById('calendar-view').style.display = 'none';
+      document.getElementById('analytics-view').style.display = 'none';
 
-      if (view === 'calendar') loadFollowups();
-      if (view === 'analytics') loadAnalytics();
+      // Show the selected one
+      if (view === 'leads') {
+        document.getElementById('conversation-panel').style.display = 'flex';
+      } else if (view === 'calendar') {
+        document.getElementById('calendar-view').style.display = 'flex';
+        loadFollowups();
+      } else if (view === 'analytics') {
+        document.getElementById('analytics-view').style.display = 'flex';
+        loadAnalytics();
+      }
     }
 
     // ============ CALENDLY ============
