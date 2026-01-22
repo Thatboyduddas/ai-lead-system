@@ -1018,12 +1018,17 @@
     .ai-chat-input-row input {
       flex: 1;
       padding: 12px 16px;
-      background: var(--glass-bg);
+      background: var(--bg-secondary);
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-md);
-      color: var(--text-primary);
+      color: #fff;
       font-size: 14px;
       transition: all 0.25s ease;
+      position: relative;
+      z-index: 10;
+      pointer-events: auto;
+      -webkit-user-select: text;
+      user-select: text;
     }
 
     .ai-chat-input-row input:focus {
@@ -2518,7 +2523,19 @@
           })
         });
 
-        showToast('Message sent!', 'success');
+        // Auto-apply tag based on what was sent
+        const msgLower = messageText.toLowerCase();
+        if (msgLower.includes('qualify for plans') || msgLower.includes('deductible') || (msgLower.includes('$') && msgLower.includes('month'))) {
+          // Sent a quote - apply Quoted tag
+          await applyTagFromDropdown('Quoted');
+          showToast('Quote sent! Tag: Quoted', 'success');
+        } else if (msgLower.includes('age') || msgLower.includes('how old')) {
+          // Asked for age - apply Age and gender tag
+          await applyTagFromDropdown('Age and gender');
+          showToast('Asked for age! Tag: Age and gender', 'success');
+        } else {
+          showToast('Message sent!', 'success');
+        }
 
         // Auto-generate lead reply after a delay
         setTimeout(() => {
