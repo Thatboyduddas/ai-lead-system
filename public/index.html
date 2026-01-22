@@ -2555,23 +2555,32 @@
         // Reload to get new AI suggestion and auto-send if enabled
         const phoneToReload = selectedLead.phone;
         const shouldAutoSend = autoSendEnabled;
+        console.log('1. Starting auto-send flow, enabled:', shouldAutoSend);
 
         // Step 1: Wait for server to process
         await new Promise(r => setTimeout(r, 800));
+        console.log('2. Server processed, reloading leads...');
 
         // Step 2: Reload leads
         await loadLeads();
+        console.log('3. Leads reloaded');
 
         // Step 3: Wait a bit then open the lead
         await new Promise(r => setTimeout(r, 400));
         openLead(phoneToReload);
+        console.log('4. Lead opened:', phoneToReload);
 
         // Step 4: If auto-send, wait for UI to render then send
         if (shouldAutoSend) {
+          console.log('5. Auto-send is ON, waiting for UI...');
           await new Promise(r => setTimeout(r, 800));
+          console.log('6. Sending message now...');
           showToast('Auto-sending...', 'success');
           await new Promise(r => setTimeout(r, 300));
-          simulateSendMessage();
+          await simulateSendMessage();
+          console.log('7. Message sent!');
+        } else {
+          console.log('5. Auto-send is OFF, skipping');
         }
       } catch (err) {
         console.error('Simulation error:', err);
