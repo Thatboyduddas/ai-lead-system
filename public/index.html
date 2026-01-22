@@ -2552,33 +2552,27 @@
         input.value = '';
         showToast('Lead reply simulated!', 'success');
 
-        // Reload to get new AI suggestion
+        // Reload to get new AI suggestion and auto-send if enabled
         const phoneToReload = selectedLead.phone;
-        const shouldAutoSend = autoSendEnabled; // Capture value now
-        console.log('Auto-send enabled:', shouldAutoSend);
+        const shouldAutoSend = autoSendEnabled;
 
-        setTimeout(async () => {
-          await loadLeads();
-          setTimeout(() => {
-            openLead(phoneToReload);
+        // Step 1: Wait for server to process
+        await new Promise(r => setTimeout(r, 800));
 
-            // If auto-send is enabled, automatically send the response after a delay
-            if (shouldAutoSend) {
-              console.log('Auto-send triggered, waiting for textarea...');
-              setTimeout(() => {
-                const textarea = document.getElementById('editable-response');
-                const msg = textarea?.value?.trim();
-                console.log('Message to send:', msg);
-                if (msg) {
-                  showToast('Auto-sending...', 'success');
-                  simulateSendMessage();
-                } else {
-                  console.log('No message found in textarea');
-                }
-              }, 1200);
-            }
-          }, 600);
-        }, 1000);
+        // Step 2: Reload leads
+        await loadLeads();
+
+        // Step 3: Wait a bit then open the lead
+        await new Promise(r => setTimeout(r, 400));
+        openLead(phoneToReload);
+
+        // Step 4: If auto-send, wait for UI to render then send
+        if (shouldAutoSend) {
+          await new Promise(r => setTimeout(r, 800));
+          showToast('Auto-sending...', 'success');
+          await new Promise(r => setTimeout(r, 300));
+          simulateSendMessage();
+        }
       } catch (err) {
         console.error('Simulation error:', err);
         showToast('Error simulating reply', 'error');
