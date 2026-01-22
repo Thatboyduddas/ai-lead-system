@@ -506,7 +506,7 @@ function processMessage(message, context = {}) {
       category = 'hot';
       priority = 'urgent';
       suggestedAction = '🔥🔥 READY TO CLOSE - Schedule the call!';
-      copyMessage = getSchedulingMessage();
+      copyMessage = getSchedulingMessage() + `\n\nBook here: ${CALENDLY_URL}30min`;
       tagToApply = 'Appointment Set';
       break;
 
