@@ -987,9 +987,9 @@ function hasStopWord(text) {
 
 // ============ WEBHOOK ============
 app.post('/webhook/salesgod', async (req, res) => {
-  console.log('Webhook received:', req.body);
+  console.log('📥 Webhook received:', JSON.stringify(req.body, null, 2));
 
-  const { phone, full_name, messages_as_string, status, isOutgoing, hasReferral, isArchived, viewType, fullSync, allMessages } = req.body;
+  const { phone, full_name, first_name, last_name, messages_as_string, status, isOutgoing, hasReferral, isArchived, viewType, fullSync, allMessages, messages, email, created_at } = req.body;
 
   if (!phone) {
     return res.json({ success: false, error: 'No phone number' });
@@ -1016,15 +1016,106 @@ app.post('/webhook/salesgod', async (req, res) => {
       };
     }
 
-    if (full_name && full_name !== 'Unknown') {
-      lead.name = full_name;
+    // Set name from available fields
+    const contactName = full_name || `${first_name || ''} ${last_name || ''}`.trim() || 'Unknown';
+    if (contactName && contactName !== 'Unknown') {
+      lead.name = contactName;
+    }
+
+    if (email) {
+      lead.email = email;
     }
 
     if (hasReferral) {
       lead.hasReferral = true;
     }
 
-    // Handle FULL SYNC mode - import all messages from history
+    // ============ PARSE SALESGOD MESSAGES FORMAT ============
+    // SalesGod sends messages in various formats - handle them all
+    let parsedMessages = [];
+
+    // Try to parse the 'messages' field (might be array or JSON string)
+    if (messages) {
+      if (Array.isArray(messages)) {
+        parsedMessages = messages;
+      } else if (typeof messages === 'string') {
+        try {
+          parsedMessages = JSON.parse(messages);
+        } catch (e) {
+          // Not JSON, might be a formatted string
+          console.log('Messages is string, not JSON array');
+        }
+      }
+    }
+
+    // If we got structured messages from SalesGod, use fullSync mode
+    if (parsedMessages.length > 0) {
+      console.log(`📨 SalesGod sent ${parsedMessages.length} structured messages for ${cleanPhone}`);
+
+      // Convert SalesGod message format to our format
+      const convertedMessages = parsedMessages.map(msg => {
+        // SalesGod format might be: { direction: 'inbound'/'outbound', message: 'text', timestamp: '...' }
+        // Or: { type: 'incoming'/'outgoing', body: 'text', created_at: '...' }
+        // Or: { is_outgoing: true/false, content: 'text' }
+        const text = msg.message || msg.body || msg.content || msg.text || (typeof msg === 'string' ? msg : '');
+        const isOut = msg.direction === 'outbound' ||
+                      msg.type === 'outgoing' ||
+                      msg.is_outgoing === true ||
+                      msg.isOutgoing === true ||
+                      msg.sent_by === 'agent' ||
+                      msg.sender === 'agent';
+        const timestamp = msg.timestamp || msg.created_at || msg.date || new Date().toISOString();
+
+        return {
+          text: text.trim(),
+          isOutgoing: isOut,
+          timestamp: timestamp,
+          salesgodOriginal: msg
+        };
+      }).filter(m => m.text && m.text.length > 0);
+
+      if (convertedMessages.length > 0) {
+        // Full sync with structured messages
+        lead.messages = convertedMessages;
+        lead.lastSyncAt = new Date().toISOString();
+
+        // Check for stop words in all messages
+        const hasBlock = lead.messages.some(m => !m.isOutgoing && hasStopWord(m.text));
+        if (hasBlock) {
+          lead.blocked = true;
+          lead.blockedAt = new Date().toISOString();
+          lead.blockedReason = 'stop_word';
+        }
+
+        // Analyze last incoming message
+        const lastIncoming = [...lead.messages].reverse().find(m => !m.isOutgoing);
+        if (lastIncoming) {
+          const analysis = processMessage(lastIncoming.text, {
+            currentTag: lead.currentTag,
+            quoteSent: lead.quoteSent,
+            referralSent: lead.referralSent,
+            messageHistory: lead.messages
+          });
+          lead.category = analysis.category;
+          lead.priority = analysis.priority;
+          lead.suggestedAction = analysis.suggestedAction;
+          lead.copyMessage = analysis.copyMessage;
+          lead.tagToApply = analysis.tagToApply;
+
+          if (analysis.intent === 'not_interested') {
+            lead.blocked = true;
+            lead.blockedReason = 'not_interested';
+          }
+        }
+
+        lead.lastMessageAt = convertedMessages[convertedMessages.length - 1]?.timestamp || new Date().toISOString();
+
+        await saveLead(cleanPhone, lead);
+        return res.json({ success: true, lead, messagesImported: convertedMessages.length });
+      }
+    }
+
+    // Handle FULL SYNC mode - import all messages from history (from Chrome extension)
     if (fullSync && allMessages && Array.isArray(allMessages)) {
       console.log(`📥 Full sync for ${cleanPhone}: ${allMessages.length} messages`);
 
