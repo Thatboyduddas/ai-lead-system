@@ -1,8 +1,8 @@
-// Duddas CRM v6.0.2 - Chrome Extension with AI Assistant
+// Duddas CRM v6.0.3 - Chrome Extension with AI Assistant
 // Fixed for SalesGod's actual HTML structure
 
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
-const VERSION = "6.0.2";
+const VERSION = "6.0.3";
 let lastSentHash = "";
 let lastFullSyncHash = "";
 let currentPhone = null;
@@ -210,6 +210,8 @@ function sendToDashboard(data, forceFullSync = false, bypassSyncCheck = false) {
       })
     }).then(() => {
       console.log(`✅ Full sync complete for ${data.phone}`);
+      // Check if we just sent a quote (outgoing message with price pattern)
+      checkForQuoteSent(data);
     }).catch(err => {
       console.error(`❌ Full sync failed:`, err);
     });
@@ -232,6 +234,43 @@ function sendToDashboard(data, forceFullSync = false, bypassSyncCheck = false) {
         viewType: data.viewType || "recent"
       })
     }).catch(() => {});
+  }
+}
+
+// ============================================
+// QUOTE DETECTION - Auto-tag when quote sent
+// ============================================
+
+let lastQuoteCheckHash = '';
+
+function checkForQuoteSent(data) {
+  if (!data.phone || !data.messages || data.messages.length === 0) return;
+
+  // Look for recent outgoing messages with price patterns
+  const recentOutgoing = data.messages.filter(m => m.isOutgoing).slice(-3);
+
+  for (const msg of recentOutgoing) {
+    // Check for quote pattern: $XXX-$XXX or $XXX-$X,XXX
+    const quotePattern = /\$\d{2,3}-\$\d{2,4}\/month|\$\d{3}-\$\d{3,4}/i;
+    if (quotePattern.test(msg.text)) {
+      const hash = data.phone + '|quote|' + msg.text.substring(0, 50);
+      if (hash === lastQuoteCheckHash) return; // Already processed
+      lastQuoteCheckHash = hash;
+
+      console.log('💰 Quote detected - updating tags');
+      // Call API to remove Age/Gender tag and add Quoted tag
+      fetch(DASHBOARD_URL + '/api/leads/' + encodeURIComponent(data.phone.replace(/[^0-9+]/g, '')) + '/quote-sent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(() => {
+        showNotif('✅ Tagged as Quoted', 'success');
+        resetSuggestionState(); // Refresh suggestion
+        updateAIBoxLeadInfo();
+      }).catch(err => {
+        console.error('Tag update failed:', err);
+      });
+      return; // Only process once
+    }
   }
 }
 
@@ -707,12 +746,17 @@ function createStatusIndicator() {
   const existing = document.getElementById('duddas-status');
   if (existing) existing.remove();
 
+  // Load saved position or default to bottom left
+  const savedPos = JSON.parse(localStorage.getItem('duddas-panel-pos') || 'null');
+  const startLeft = savedPos?.left || '20px';
+  const startBottom = savedPos?.bottom || '20px';
+
   const indicator = document.createElement('div');
   indicator.id = 'duddas-status';
   indicator.style.cssText = `
     position: fixed;
-    bottom: 20px;
-    right: 20px;
+    bottom: ${startBottom};
+    left: ${startLeft};
     background: linear-gradient(135deg, #0d1424, #1e293b);
     color: white;
     padding: 0;
@@ -724,10 +768,11 @@ function createStatusIndicator() {
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     border: 1px solid rgba(251,191,36,0.3);
     overflow: hidden;
+    cursor: default;
   `;
   indicator.innerHTML = `
-    <!-- Header -->
-    <div style="background:linear-gradient(135deg,#991b1b,#1e3a5f);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #fbbf24;">
+    <!-- Header (draggable) -->
+    <div id="duddas-header" style="background:linear-gradient(135deg,#991b1b,#1e3a5f);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #fbbf24;cursor:grab;">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:18px;">🦅</span>
         <span style="font-weight:700;font-size:14px;">Duddas AI</span>
@@ -775,6 +820,46 @@ function createStatusIndicator() {
   `;
 
   document.body.appendChild(indicator);
+
+  // Make panel draggable by header
+  const header = document.getElementById('duddas-header');
+  let isDragging = false;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
+
+  header.addEventListener('mousedown', (e) => {
+    if (e.target.tagName === 'BUTTON') return; // Don't drag when clicking buttons
+    isDragging = true;
+    header.style.cursor = 'grabbing';
+    const rect = indicator.getBoundingClientRect();
+    dragOffsetX = e.clientX - rect.left;
+    dragOffsetY = e.clientY - rect.top;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    const newLeft = e.clientX - dragOffsetX;
+    const newTop = e.clientY - dragOffsetY;
+    // Convert to bottom/left positioning
+    const newBottom = window.innerHeight - newTop - indicator.offsetHeight;
+    indicator.style.left = newLeft + 'px';
+    indicator.style.bottom = newBottom + 'px';
+    indicator.style.right = 'auto';
+    indicator.style.top = 'auto';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false;
+      header.style.cursor = 'grab';
+      // Save position
+      localStorage.setItem('duddas-panel-pos', JSON.stringify({
+        left: indicator.style.left,
+        bottom: indicator.style.bottom
+      }));
+    }
+  });
 
   // Minimize toggle
   let isMinimized = false;

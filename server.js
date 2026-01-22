@@ -1835,6 +1835,38 @@ app.get('/api/leads/:phone/suggestion', async (req, res) => {
   }
 });
 
+// ============ QUOTE SENT - Update tags ============
+
+// When a quote is sent, remove Age/Gender tag and add Quoted tag
+app.post('/api/leads/:phone/quote-sent', async (req, res) => {
+  try {
+    const phone = decodeURIComponent(req.params.phone).replace(/[^0-9+]/g, '');
+    const lead = await getLead(phone);
+
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    // Update tags
+    const oldTag = lead.currentTag;
+    lead.currentTag = 'Quoted';
+    lead.tagToApply = null; // Clear any pending tag
+    lead.quoteSent = true;
+
+    // Clear the age/gender suggestion since they're now quoted
+    lead.copyMessage = "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.";
+    lead.category = 'hot';
+
+    await saveLead(lead);
+
+    console.log(`📋 Quote sent for ${phone}: ${oldTag} → Quoted`);
+    res.json({ success: true, oldTag, newTag: 'Quoted' });
+  } catch (err) {
+    console.error('Quote-sent error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============ PENDING MESSAGES FOR AUTO-SEND ============
 
 // Get ALL pending messages in the queue (for extension auto-send)
