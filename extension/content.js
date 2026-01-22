@@ -1,7 +1,8 @@
-// Duddas CRM v6.0 - Chrome Extension with AI Assistant
+// Duddas CRM v6.0.1 - Chrome Extension with AI Assistant
 // Fixed for SalesGod's actual HTML structure
 
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
+const VERSION = "6.0.1";
 let lastSentHash = "";
 let lastFullSyncHash = "";
 let currentPhone = null;
@@ -11,6 +12,11 @@ let queueProcessing = false;
 let autoSendEnabled = false;
 let syncEnabled = true; // Sync mode - controlled from dashboard
 let lastConversationPhone = null;
+
+// CACHING - Prevent constant DOM scraping
+let cachedConversationData = null;
+let cacheTimestamp = 0;
+const CACHE_DURATION = 2000; // 2 seconds cache
 
 // Check sync setting from server
 async function checkSyncSetting() {
@@ -42,7 +48,13 @@ checkSyncSetting(); // Initial check
 // CONVERSATION DATA EXTRACTION (Fixed for SalesGod)
 // ============================================
 
-function extractConversationData() {
+function extractConversationData(forceRefresh = false) {
+  // Return cached data if still valid (prevents constant DOM scraping)
+  const now = Date.now();
+  if (!forceRefresh && cachedConversationData && (now - cacheTimestamp) < CACHE_DURATION) {
+    return cachedConversationData;
+  }
+
   let contactName = "";
   let phone = "";
   let currentTag = "";
@@ -136,9 +148,8 @@ function extractConversationData() {
     });
   }
 
-  console.log(`📱 Extracted: ${contactName} | ${phone} | ${allMessages.length} messages`);
-
-  return {
+  // Cache the result
+  cachedConversationData = {
     contactName,
     phone,
     currentTag,
@@ -147,6 +158,9 @@ function extractConversationData() {
     isArchived,
     viewType
   };
+  cacheTimestamp = now;
+
+  return cachedConversationData;
 }
 
 function sendToDashboard(data, forceFullSync = false, bypassSyncCheck = false) {
@@ -712,6 +726,7 @@ function createStatusIndicator() {
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:18px;">🦅</span>
         <span style="font-weight:700;font-size:14px;">Duddas AI</span>
+        <span style="font-size:10px;color:#a1a1aa;">v${VERSION}</span>
         <span id="duddas-sync-dot" style="width:8px;height:8px;background:#22c55e;border-radius:50%;"></span>
       </div>
       <button id="duddas-minimize" style="background:none;border:none;color:#fff;cursor:pointer;font-size:16px;padding:0;">−</button>
@@ -1041,7 +1056,7 @@ async function updateStatusIndicator() {
 // INITIALIZATION
 // ============================================
 
-console.log("🚀 Duddas CRM v6.0 - AI Assistant Edition");
+console.log(`🚀 Duddas CRM v${VERSION} - AI Assistant Edition`);
 
 // Create status indicator
 setTimeout(createStatusIndicator, 2000);
@@ -1049,37 +1064,47 @@ setTimeout(createStatusIndicator, 2000);
 // Start monitoring for conversation changes (MutationObserver)
 setTimeout(startConversationMonitoring, 3000);
 
-// REDUCED POLLING - Only essential intervals
-// Regular sync of current conversation (backup polling) - reduced frequency
-setInterval(checkAndSync, 8000); // Was 3000, now 8000
+// MINIMAL POLLING - Only essential intervals with caching
+// Regular sync of current conversation (backup polling)
+setInterval(checkAndSync, 15000); // Reduced - caching handles the rest
 
-// Check for pending sends (current lead - legacy)
-setInterval(checkPendingSends, 5000); // Was 3000, now 5000
+// Check for pending sends
+setInterval(checkPendingSends, 10000);
 
 // Check for tags to apply
-setInterval(checkPendingTags, 5000); // Was 2000, now 5000
+setInterval(checkPendingTags, 10000);
 
 // Process message queue (auto-navigate and send)
-setInterval(processMessageQueue, 8000); // Was 5000, now 8000
+setInterval(processMessageQueue, 10000);
 
-// Update status indicator (includes updateCurrentLeadDisplay)
-setInterval(updateStatusIndicator, 8000); // Was 5000, now 8000
+// Update status indicator
+setInterval(updateStatusIndicator, 15000);
 
 // Check auto-send status
-setInterval(checkAutoSendStatus, 15000); // Was 10000, now 15000
+setInterval(checkAutoSendStatus, 20000);
 
 // Debounced click handler for conversation changes
 let clickDebounceTimer = null;
-document.addEventListener("click", () => {
+let lastClickTime = 0;
+document.addEventListener("click", (e) => {
+  // Ignore clicks on the Duddas panel itself
+  if (e.target.closest('#duddas-status')) return;
+
+  // Rate limit - max once per second
+  const now = Date.now();
+  if (now - lastClickTime < 1000) return;
+  lastClickTime = now;
+
   // Debounce - only trigger after user stops clicking
   clearTimeout(clickDebounceTimer);
   clickDebounceTimer = setTimeout(() => {
-    const data = extractConversationData();
+    // Force refresh cache on click
+    const data = extractConversationData(true);
     if (data.phone && data.messages.length > 0) {
       sendToDashboard(data, true);
-      updateAIBoxLeadInfo(); // Update suggestion when clicking
+      updateAIBoxLeadInfo();
     }
-  }, 800);
+  }, 1000);
 });
 
 // Initial full sync
