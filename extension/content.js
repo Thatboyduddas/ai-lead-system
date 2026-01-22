@@ -224,7 +224,7 @@ function formatPhoneDisplay(phone) {
 }
 
 async function processMessageQueue() {
-  if (queueProcessing || !autoSendEnabled) return;
+  if (queueProcessing) return;
   queueProcessing = true;
 
   try {

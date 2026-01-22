@@ -349,6 +349,7 @@ const SALESGOD_WEBHOOK_URL = process.env.SALESGOD_WEBHOOK_URL;
 const SALESGOD_TOKEN = process.env.SALESGOD_TOKEN;
 
 // Send tag to SalesGod directly via API - INSTANT sync!
+// SalesGod requires: token in body, first_name and phone as required fields
 async function syncTagToSalesGod(phone, tag, leadName = '') {
   if (!SALESGOD_WEBHOOK_URL || !SALESGOD_TOKEN) {
     console.log('SalesGod API not configured');
@@ -358,17 +359,23 @@ async function syncTagToSalesGod(phone, tag, leadName = '') {
   try {
     console.log(`📤 Syncing tag "${tag}" to SalesGod for ${phone}`);
 
+    // Parse name into first/last
+    const nameParts = (leadName || 'Lead').trim().split(' ');
+    const firstName = nameParts[0] || 'Lead';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     const response = await fetch(SALESGOD_WEBHOOK_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SALESGOD_TOKEN}`
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        token: SALESGOD_TOKEN,
         phone: phone,
-        tag: tag,
-        name: leadName,
-        source: 'duddas-crm'
+        first_name: firstName,
+        last_name: lastName,
+        status: tag,
+        notes: `Tag synced from Duddas CRM: ${tag}`
       })
     });
 
@@ -1170,11 +1177,8 @@ app.get('/api/queue/pending', async (req, res) => {
 });
 
 // Get next message in queue (for extension to process one at a time)
+// No auto-send toggle required - if it's in the queue, send it
 app.get('/api/queue/next', async (req, res) => {
-  if (!autoSendEnabled) {
-    return res.json({ pending: false, reason: 'auto-send disabled' });
-  }
-
   try {
     const leads = await getAllLeads();
     const pending = leads
