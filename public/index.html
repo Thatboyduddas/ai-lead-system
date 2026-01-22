@@ -1264,6 +1264,121 @@
       gap: 12px;
     }
 
+    .calendar-container {
+      background: linear-gradient(135deg, rgba(30, 58, 95, 0.4) 0%, rgba(13, 20, 36, 0.6) 100%);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+    .calendar-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .calendar-nav button {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .calendar-nav button:hover {
+      background: rgba(59, 130, 246, 0.3);
+    }
+    .calendar-nav h3 {
+      color: #fff;
+      font-size: 18px;
+    }
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .calendar-day-header {
+      text-align: center;
+      color: #71717a;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 8px;
+      text-transform: uppercase;
+    }
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 8px 4px;
+      border-radius: var(--radius-md);
+      background: var(--glass-bg);
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-size: 14px;
+      color: #a1a1aa;
+      transition: all 0.2s;
+    }
+    .calendar-day:hover {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: rgba(59, 130, 246, 0.5);
+    }
+    .calendar-day.today {
+      background: rgba(34, 197, 94, 0.2);
+      border-color: rgba(34, 197, 94, 0.5);
+      color: #22c55e;
+      font-weight: 700;
+    }
+    .calendar-day.other-month {
+      opacity: 0.3;
+    }
+    .calendar-day.has-appointment {
+      background: rgba(59, 130, 246, 0.3);
+      border-color: rgba(59, 130, 246, 0.6);
+      color: #fff;
+    }
+    .calendar-day .day-number {
+      font-weight: 600;
+    }
+    .calendar-day .day-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #3b82f6;
+      margin-top: 4px;
+    }
+
+    .calendly-section, .gcal-section {
+      background: linear-gradient(135deg, rgba(30, 58, 95, 0.4) 0%, rgba(13, 20, 36, 0.6) 100%);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      margin-bottom: 28px;
+    }
+    .calendly-section h3, .gcal-section h3 {
+      font-size: 17px;
+      color: #fff;
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+    .calendly-setup-row {
+      display: flex;
+      gap: 12px;
+    }
+    .calendly-setup-row input {
+      flex: 1;
+      padding: 12px 16px;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      color: #fff;
+      font-size: 14px;
+    }
+
     .calendly-setup {
       background: linear-gradient(135deg, rgba(30, 58, 95, 0.4) 0%, rgba(13, 20, 36, 0.6) 100%);
       backdrop-filter: blur(20px);
@@ -2119,20 +2234,47 @@
         <h2>Calendar & Follow-ups</h2>
         <div class="calendar-actions">
           <button class="btn btn-blue" onclick="window.open(calendlyUrl, '_blank')">Open Calendly</button>
+          <button class="btn btn-secondary" onclick="refreshCalendar()">Refresh</button>
         </div>
       </div>
 
-      <div class="calendly-setup">
-        <h3>Calendly Integration</h3>
-        <input type="text" id="calendly-url" placeholder="Paste your Calendly URL (e.g., https://calendly.com/yourname)" onchange="saveCalendlyUrl()">
-        <p style="font-size:12px;color:#71717a;">When you click "Schedule Call" on a lead, it will open this Calendly link with their info pre-filled.</p>
+      <!-- Calendar Grid -->
+      <div class="calendar-container">
+        <div class="calendar-nav">
+          <button onclick="changeMonth(-1)">&lt;</button>
+          <h3 id="calendar-month-year"></h3>
+          <button onclick="changeMonth(1)">&gt;</button>
+        </div>
+        <div class="calendar-grid">
+          <div class="calendar-day-header">Sun</div>
+          <div class="calendar-day-header">Mon</div>
+          <div class="calendar-day-header">Tue</div>
+          <div class="calendar-day-header">Wed</div>
+          <div class="calendar-day-header">Thu</div>
+          <div class="calendar-day-header">Fri</div>
+          <div class="calendar-day-header">Sat</div>
+          <div id="calendar-days"></div>
+        </div>
       </div>
 
-      <div class="upcoming-appointments" id="appointments-section">
-        <h3>Scheduled Appointments</h3>
-        <div id="appointments-list">
-          <p style="color:#71717a;font-size:13px;">No upcoming appointments. Schedule calls with leads to see them here.</p>
+      <!-- Calendly Embed -->
+      <div class="calendly-section">
+        <h3>Calendly</h3>
+        <div class="calendly-setup-row">
+          <input type="text" id="calendly-url" placeholder="Paste your Calendly URL (e.g., https://calendly.com/yourname)" onchange="saveCalendlyUrl()">
+          <button class="btn btn-blue" onclick="embedCalendly()">Embed</button>
         </div>
+        <div id="calendly-embed-container" style="margin-top:16px;"></div>
+      </div>
+
+      <!-- Google Calendar Embed -->
+      <div class="gcal-section">
+        <h3>Google Calendar</h3>
+        <div class="calendly-setup-row">
+          <input type="text" id="gcal-embed-url" placeholder="Paste Google Calendar embed URL or email" onchange="saveGcalUrl()">
+          <button class="btn btn-blue" onclick="embedGoogleCalendar()">Embed</button>
+        </div>
+        <div id="gcal-embed-container" style="margin-top:16px;"></div>
       </div>
 
       <div class="followup-section">
@@ -2293,6 +2435,122 @@
     function saveCalendlyUrl() {
       calendlyUrl = document.getElementById('calendly-url').value;
       localStorage.setItem('calendlyUrl', calendlyUrl);
+    }
+
+    function saveGcalUrl() {
+      const gcalUrl = document.getElementById('gcal-embed-url').value;
+      localStorage.setItem('gcalUrl', gcalUrl);
+    }
+
+    // ============ CALENDAR GRID ============
+    let currentCalendarDate = new Date();
+
+    function renderCalendar() {
+      const year = currentCalendarDate.getFullYear();
+      const month = currentCalendarDate.getMonth();
+
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+
+      document.getElementById('calendar-month-year').textContent = `${monthNames[month]} ${year}`;
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+      const today = new Date();
+      const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+
+      let html = '';
+
+      // Previous month days
+      for (let i = firstDay - 1; i >= 0; i--) {
+        const day = daysInPrevMonth - i;
+        html += `<div class="calendar-day other-month"><span class="day-number">${day}</span></div>`;
+      }
+
+      // Current month days
+      for (let day = 1; day <= daysInMonth; day++) {
+        const isToday = isCurrentMonth && today.getDate() === day;
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const hasAppt = appointments.some(a => a.date === dateStr);
+
+        html += `<div class="calendar-day ${isToday ? 'today' : ''} ${hasAppt ? 'has-appointment' : ''}" onclick="selectCalendarDay('${dateStr}')">
+          <span class="day-number">${day}</span>
+          ${hasAppt ? '<span class="day-dot"></span>' : ''}
+        </div>`;
+      }
+
+      // Next month days
+      const totalCells = firstDay + daysInMonth;
+      const remaining = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+      for (let day = 1; day <= remaining; day++) {
+        html += `<div class="calendar-day other-month"><span class="day-number">${day}</span></div>`;
+      }
+
+      document.getElementById('calendar-days').innerHTML = html;
+    }
+
+    function changeMonth(delta) {
+      currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+      renderCalendar();
+    }
+
+    function selectCalendarDay(dateStr) {
+      showToast(`Selected: ${dateStr}`, 'info');
+      // Could open appointment modal here
+    }
+
+    let appointments = [];
+    function refreshCalendar() {
+      renderCalendar();
+      showToast('Calendar refreshed', 'success');
+    }
+
+    function embedCalendly() {
+      const url = document.getElementById('calendly-url').value;
+      if (!url) {
+        showToast('Enter your Calendly URL first', 'error');
+        return;
+      }
+      saveCalendlyUrl();
+
+      // Extract username from URL
+      const match = url.match(/calendly\.com\/([^\/\?]+)/);
+      if (match) {
+        const username = match[1];
+        document.getElementById('calendly-embed-container').innerHTML = `
+          <iframe src="https://calendly.com/${username}?embed_type=Inline&hide_landing_page_details=1&hide_gdpr_banner=1&background_color=1a1a2e&text_color=ffffff&primary_color=3b82f6"
+            width="100%" height="630" frameborder="0" style="border-radius:12px;"></iframe>
+        `;
+        showToast('Calendly embedded!', 'success');
+      } else {
+        showToast('Invalid Calendly URL', 'error');
+      }
+    }
+
+    function embedGoogleCalendar() {
+      const input = document.getElementById('gcal-embed-url').value;
+      if (!input) {
+        showToast('Enter your Google Calendar email or embed URL', 'error');
+        return;
+      }
+      localStorage.setItem('gcalUrl', input);
+
+      let embedUrl;
+      if (input.includes('calendar.google.com')) {
+        embedUrl = input;
+      } else if (input.includes('@')) {
+        // It's an email, create embed URL
+        embedUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(input)}&ctz=America/New_York&mode=WEEK&bgcolor=%231a1a2e`;
+      } else {
+        embedUrl = `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(input)}&ctz=America/New_York&mode=WEEK&bgcolor=%231a1a2e`;
+      }
+
+      document.getElementById('gcal-embed-container').innerHTML = `
+        <iframe src="${embedUrl}" width="100%" height="500" frameborder="0" scrolling="no" style="border-radius:12px;background:#1a1a2e;"></iframe>
+      `;
+      showToast('Google Calendar embedded!', 'success');
     }
 
     function openCalendlyForLead(lead) {
@@ -2961,6 +3219,13 @@
       if (calendlyUrl) {
         document.getElementById('calendly-url').value = calendlyUrl;
       }
+      // Load Google Calendar URL
+      const savedGcal = localStorage.getItem('gcalUrl');
+      if (savedGcal) {
+        document.getElementById('gcal-embed-url').value = savedGcal;
+      }
+      // Initialize calendar grid
+      renderCalendar();
     });
 
     async function loadLeads() {
