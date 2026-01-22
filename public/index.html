@@ -268,7 +268,7 @@
     }
 
     /* Layout */
-    .main-layout { display: flex; height: calc(100vh - 57px); }
+    .main-layout { display: flex; height: calc(100vh - 57px); position: relative; }
 
     /* Sidebar */
     .leads-sidebar {
@@ -1354,6 +1354,11 @@
       padding: 32px;
       overflow-y: auto;
       background: linear-gradient(180deg, var(--bg-primary) 0%, rgba(13, 20, 36, 0.5) 100%);
+      position: absolute;
+      left: 340px;
+      right: 0;
+      top: 0;
+      bottom: 0;
     }
     .calendar-view.active { display: block; }
 
@@ -1687,6 +1692,11 @@
       padding: 32px;
       overflow-y: auto;
       background: linear-gradient(180deg, var(--bg-primary) 0%, rgba(13, 20, 36, 0.5) 100%);
+      position: absolute;
+      left: 340px;
+      right: 0;
+      top: 0;
+      bottom: 0;
     }
     .analytics-view.active { display: block; }
 
@@ -2200,6 +2210,13 @@
       }
 
       /* Calendar view */
+      .calendar-view {
+        position: relative;
+        left: 0;
+        top: auto;
+        bottom: auto;
+        right: auto;
+      }
       .calendar-content {
         padding: 16px;
       }
@@ -2209,6 +2226,13 @@
       }
 
       /* Analytics view */
+      .analytics-view {
+        position: relative;
+        left: 0;
+        top: auto;
+        bottom: auto;
+        right: auto;
+      }
       .analytics-content {
         padding: 16px;
       }
@@ -2382,7 +2406,7 @@
     </div>
 
     <!-- Calendar View -->
-    <div class="calendar-view" id="calendar-view">
+    <div class="calendar-view" id="calendar-view" style="display:none;">
       <div class="calendar-header">
         <h2>Calendar & Follow-ups</h2>
         <div class="calendar-actions">
@@ -2418,7 +2442,7 @@
     </div>
 
     <!-- Analytics View -->
-    <div class="analytics-view" id="analytics-view">
+    <div class="analytics-view" id="analytics-view" style="display:none;">
       <div class="analytics-header">
         <h2>Analytics Dashboard</h2>
         <p>Track your performance and conversion metrics</p>
