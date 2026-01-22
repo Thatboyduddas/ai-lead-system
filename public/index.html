@@ -2086,7 +2086,7 @@
       </div>
       <div class="filter-tabs">
         <button class="filter-tab active" data-filter="all" onclick="setFilter('all')">All</button>
-        <button class="filter-tab" data-filter="wants_quote" onclick="setFilter('wants_quote')">Hot</button>
+        <button class="filter-tab" data-filter="hot" onclick="setFilter('hot')">Hot</button>
         <button class="filter-tab" data-filter="ready_for_quote" onclick="setFilter('ready_for_quote')">Quote</button>
         <button class="filter-tab" data-filter="soft_positive" onclick="setFilter('soft_positive')">Soft</button>
         <button class="filter-tab" data-filter="scheduled" onclick="setFilter('scheduled')">Later</button>
@@ -2937,7 +2937,7 @@
 
     function updateStats() {
       const active = leads.filter(l => l.status !== 'handled');
-      document.getElementById('stat-hot').textContent = active.filter(l => l.category === 'wants_quote').length;
+      document.getElementById('stat-hot').textContent = active.filter(l => l.category === 'hot').length;
       document.getElementById('stat-quote').textContent = active.filter(l => l.category === 'ready_for_quote').length;
       document.getElementById('stat-soft').textContent = active.filter(l => l.category === 'soft_positive').length;
       document.getElementById('stat-scheduled').textContent = active.filter(l => l.category === 'scheduled').length;
@@ -2974,7 +2974,8 @@
 
     function getBadge(category) {
       const badges = {
-        wants_quote: { icon: 'Fire', label: 'HOT', class: 'hot' },
+        hot: { icon: 'Fire', label: '🔥 CLOSE', class: 'hot' },
+        wants_quote: { icon: 'Fire', label: 'YES', class: 'quote' },
         ready_for_quote: { icon: 'Dollar', label: 'QUOTE', class: 'quote' },
         soft_positive: { icon: 'Think', label: 'SOFT', class: 'soft' },
         scheduled: { icon: 'Calendar', label: 'LATER', class: 'scheduled' },
@@ -3049,7 +3050,7 @@
             </div>
             <div class="lead-item-preview">${lastMsg?.text?.substring(0, 50) || 'No messages'}${lastMsg?.text?.length > 50 ? '...' : ''}</div>
             <div class="lead-item-badges">
-              ${lead.priority === 'high' && !isHandled ? '<span class="mini-badge urgent">!</span>' : ''}
+              ${(lead.priority === 'urgent' || lead.priority === 'high') && !isHandled ? '<span class="mini-badge urgent">!</span>' : ''}
               ${stale ? '<span class="mini-badge stale">STALE</span>' : ''}
               ${hasFollowUp ? `<span class="mini-badge scheduled">${lead.followUpDate}</span>` : ''}
               ${lead.hasReferral ? '<span class="mini-badge referral">REF</span>' : ''}

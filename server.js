@@ -157,9 +157,33 @@ function parseAgeGender(message) {
 }
 
 // ============ INTENT DETECTION ============
-function detectIntent(message) {
+function detectIntent(message, context = {}) {
   const text = message.toLowerCase().trim();
-  
+  const { isQuoted } = context;
+
+  // READY TO BOOK - positive response after quote (this is the MONEY)
+  // These are TRUE hot leads - they got quoted and want to proceed
+  if (isQuoted) {
+    const readyToBookPhrases = [
+      'sounds good', 'that works', 'works for me', 'ok that works', 'okay that works',
+      'next steps', 'next step', 'sign up', 'sign me up', 'get started', 'lets do it',
+      "let's do it", 'im in', "i'm in", 'im ready', "i'm ready", 'ready to go',
+      'when can we talk', 'when can we call', 'when can you call', 'call me',
+      'schedule', 'set up', 'set something up', 'book', 'appointment',
+      'how do i', 'what do i need', 'whats next', "what's next",
+      'in my budget', 'can afford', 'works for my budget',
+      'perfect', 'great', 'awesome', 'love it', 'lets go', "let's go",
+      'free tomorrow', 'free today', 'available', 'im free', "i'm free",
+      'talk soon', 'call soon', 'hear from you', 'what time', 'good time'
+    ];
+
+    for (const phrase of readyToBookPhrases) {
+      if (text.includes(phrase)) {
+        return { intent: 'ready_to_book', confidence: 0.95 };
+      }
+    }
+  }
+
   // Check for FOLLOW-UP indicators FIRST (overrides stop words)
   // People who say "no thanks BUT..." or "im good BUT maybe later" are follow-ups, not dead
   const followUpIndicators = [
@@ -320,30 +344,85 @@ function detectIntent(message) {
   return { intent: 'review', confidence: 0.3 };
 }
 
+// ============ TIME SLOT GENERATION (EST) ============
+function generateTimeSlots() {
+  // Get current time in EST
+  const now = new Date();
+  const estOptions = { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', hour12: true };
+  const estHour = parseInt(new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', hour12: false }));
+
+  const todaySlots = [];
+  const possibleHours = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]; // 9am to 7pm
+
+  // Find 3 available slots for today (at least 1 hour from now)
+  for (const hour of possibleHours) {
+    if (hour > estHour && todaySlots.length < 3) {
+      const ampm = hour >= 12 ? 'pm' : 'am';
+      const displayHour = hour > 12 ? hour - 12 : hour;
+      todaySlots.push(`${displayHour}${ampm}`);
+    }
+  }
+
+  // If less than 3 slots today, we'll just use what we have
+  // Generate tomorrow slot
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const tomorrowDay = dayNames[tomorrow.getDay()];
+  const tomorrowSlot = `${tomorrowDay} at 10am`;
+
+  return { todaySlots, tomorrowSlot, estHour };
+}
+
+function getSchedulingMessage() {
+  const { todaySlots, tomorrowSlot, estHour } = generateTimeSlots();
+
+  if (todaySlots.length >= 3) {
+    return `Perfect! I have ${todaySlots[0]}, ${todaySlots[1]}, or ${todaySlots[2]} EST available today. Or ${tomorrowSlot} EST if that works better?`;
+  } else if (todaySlots.length > 0) {
+    return `Perfect! I have ${todaySlots.join(' or ')} EST available today. Or ${tomorrowSlot} EST if that works better?`;
+  } else {
+    // Too late today, offer tomorrow
+    return `Perfect! I'm available ${tomorrowSlot} EST, or let me know what time works for you tomorrow!`;
+  }
+}
+
 // ============ MESSAGE TEMPLATES ============
 const MESSAGES = {
   ageGender: "Alright, may I have the age and gender of everyone who will be insured?",
   quote: (low, high) => `Assuming you have no major chronic/critical conditions, you can qualify for plans between $${low}-$${high}/month. Deductibles and networks are customizable ➡️ with $50 copays for primary care, specialists, and urgent care; $250 for ER; $250 for outpatient surgeries; and $500 for inpatient stays. Maximum out of pocket 5k. Plans include free ACA-compliant preventive care (immunizations, physicals, mammograms, Pap smears, colonoscopies).`,
-  medicare: `We don't specialize in Medicare, but here is our referral. Her name is Faith, she's been doing this for over a decade. Text her here +1 (352) 900-3966 or get on her calendar. PLEASE mention Jack referred you! https://api.leadconnectorhq.com/widget/bookings/faithinsurancesolcalendar`
+  medicare: `We don't specialize in Medicare, but here is our referral. Her name is Faith, she's been doing this for over a decade. Text her here +1 (352) 900-3966 or get on her calendar. PLEASE mention Jack referred you! https://api.leadconnectorhq.com/widget/bookings/faithinsurancesolcalendar`,
+  scheduling: getSchedulingMessage
 };
 
 function processMessage(message, context = {}) {
-  const intentResult = detectIntent(message);
   const { currentTag, quoteSent, referralSent, messageHistory } = context;
-  
-  // Determine conversation stage
+
+  // Determine conversation stage FIRST so we can pass to detectIntent
   const isQuoted = currentTag === 'Quoted' || quoteSent;
   const isMedicareReferred = currentTag === 'Medicare Referral' || referralSent;
+
+  // Pass isQuoted to detectIntent so it can identify ready-to-book leads
+  const intentResult = detectIntent(message, { isQuoted });
   
   let category, priority, suggestedAction, copyMessage, tagToApply, followUpDate;
   
   switch (intentResult.intent) {
+    case 'ready_to_book':
+      // 🔥🔥🔥 THIS IS THE MONEY - Lead replied after quote, ready to close
+      category = 'hot';
+      priority = 'urgent';
+      suggestedAction = '🔥🔥 READY TO CLOSE - Schedule the call!';
+      copyMessage = getSchedulingMessage();
+      tagToApply = 'Appointment Set';
+      break;
+
     case 'wants_quote':
       if (isQuoted) {
         // Already quoted - they might have questions or want to proceed
-        category = 'question';
+        category = 'hot';
         priority = 'high';
-        suggestedAction = '💬 Already quoted - may have questions or ready to book';
+        suggestedAction = '🔥 Already quoted - push for booking';
         copyMessage = "Happy to go over the numbers! Any questions, or ready to get started?";
       } else {
         category = 'wants_quote';
