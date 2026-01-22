@@ -660,69 +660,198 @@ function createStatusIndicator() {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: linear-gradient(135deg, #991b1b, #1e3a5f);
+    background: linear-gradient(135deg, #0d1424, #1e293b);
     color: white;
-    padding: 10px 16px;
-    border-radius: 12px;
-    font-family: sans-serif;
-    font-size: 12px;
+    padding: 0;
+    border-radius: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
     z-index: 99998;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    width: 320px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
     border: 1px solid rgba(251,191,36,0.3);
+    overflow: hidden;
   `;
   indicator.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span id="duddas-sync-dot" style="width:8px;height:8px;background:#22c55e;border-radius:50%;transition:background 0.3s;"></span>
-      <span style="font-weight:bold;">Duddas CRM v5.1</span>
-      <span id="duddas-queue-count" style="background:#3b82f6;padding:2px 6px;border-radius:10px;font-size:10px;">0</span>
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#991b1b,#1e3a5f);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #fbbf24;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:18px;">🦅</span>
+        <span style="font-weight:700;font-size:14px;">Duddas AI</span>
+        <span id="duddas-sync-dot" style="width:8px;height:8px;background:#22c55e;border-radius:50%;"></span>
+      </div>
+      <button id="duddas-minimize" style="background:none;border:none;color:#fff;cursor:pointer;font-size:16px;padding:0;">−</button>
     </div>
-    <div id="duddas-current-lead" style="font-size:10px;color:#a1a1aa;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Auto-syncing...</div>
-    <div style="display:flex;gap:6px;">
-      <button id="duddas-force-sync" style="background:#22c55e;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:bold;cursor:pointer;">🔄 Force Sync</button>
-      <button id="duddas-queue-btn" style="background:#3b82f6;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">Queue</button>
+
+    <!-- AI Response Area -->
+    <div id="duddas-ai-content" style="padding:12px;">
+      <!-- Current Lead Info -->
+      <div id="duddas-lead-info" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:10px;margin-bottom:10px;">
+        <div style="font-size:11px;color:#71717a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">Current Lead</div>
+        <div id="duddas-lead-name" style="font-weight:600;color:#fff;">No conversation open</div>
+        <div id="duddas-lead-phone" style="font-size:11px;color:#a1a1aa;"></div>
+      </div>
+
+      <!-- Suggested Response -->
+      <div id="duddas-suggestion-box" style="display:none;background:linear-gradient(135deg,rgba(34,197,94,0.15),rgba(34,197,94,0.05));border:1px solid rgba(34,197,94,0.3);border-radius:8px;padding:10px;margin-bottom:10px;">
+        <div style="font-size:11px;color:#22c55e;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;font-weight:600;">💡 Suggested Response</div>
+        <div id="duddas-suggestion-text" style="font-size:13px;color:#fff;line-height:1.4;max-height:60px;overflow-y:auto;"></div>
+        <button id="duddas-copy-suggestion" style="margin-top:8px;background:#22c55e;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;width:100%;">📋 Copy Response</button>
+      </div>
+
+      <!-- AI Chat Area -->
+      <div id="duddas-ai-response" style="background:rgba(0,0,0,0.2);border-radius:8px;padding:10px;margin-bottom:10px;min-height:60px;max-height:150px;overflow-y:auto;font-size:13px;color:#e4e4e7;line-height:1.5;">
+        <span style="color:#71717a;">Ask me anything about your leads...</span>
+      </div>
+
+      <!-- AI Input -->
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="duddas-ai-input" placeholder="Who mentioned golf? Follow-ups?" style="flex:1;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 12px;color:#fff;font-size:13px;outline:none;" />
+        <button id="duddas-ai-send" style="background:linear-gradient(135deg,#fbbf24,#b45309);color:#000;border:none;padding:10px 14px;border-radius:8px;font-weight:700;cursor:pointer;">Ask</button>
+      </div>
+
+      <!-- Quick Actions -->
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;">
+        <button class="duddas-quick-btn" data-query="Who needs follow up?" style="background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;padding:6px 10px;border-radius:6px;font-size:10px;cursor:pointer;">📞 Follow-ups</button>
+        <button class="duddas-quick-btn" data-query="Show hot leads" style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.3);color:#f87171;padding:6px 10px;border-radius:6px;font-size:10px;cursor:pointer;">🔥 Hot</button>
+        <button class="duddas-quick-btn" data-query="Who is ready to book?" style="background:rgba(34,197,94,0.2);border:1px solid rgba(34,197,94,0.3);color:#4ade80;padding:6px 10px;border-radius:6px;font-size:10px;cursor:pointer;">💰 Ready</button>
+        <button id="duddas-force-sync" style="background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.3);color:#fbbf24;padding:6px 10px;border-radius:6px;font-size:10px;cursor:pointer;">🔄 Sync</button>
+      </div>
     </div>
-    <div id="duddas-sync-status" style="font-size:10px;color:#fbbf24;display:none;"></div>
   `;
 
   document.body.appendChild(indicator);
 
-  // Queue button click
-  document.getElementById('duddas-queue-btn').onclick = async () => {
-    const res = await fetch(DASHBOARD_URL + '/api/queue/pending');
-    const data = await res.json();
-    alert(`Queue Status:\n\nAuto-Send: ${data.autoSendEnabled ? 'ON' : 'OFF'}\nMessages in queue: ${data.count}\n\n${data.queue.map(q => `• ${q.name || q.phone}: "${q.message.substring(0,30)}..."`).join('\n') || 'Queue empty'}`);
+  // Minimize toggle
+  let isMinimized = false;
+  document.getElementById('duddas-minimize').onclick = () => {
+    isMinimized = !isMinimized;
+    document.getElementById('duddas-ai-content').style.display = isMinimized ? 'none' : 'block';
+    document.getElementById('duddas-minimize').textContent = isMinimized ? '+' : '−';
   };
 
-  // Force Sync button - syncs current conversation immediately
+  // Copy suggestion
+  document.getElementById('duddas-copy-suggestion').onclick = () => {
+    const text = document.getElementById('duddas-suggestion-text').textContent;
+    navigator.clipboard.writeText(text);
+    showNotif('✅ Copied to clipboard!', 'success');
+  };
+
+  // AI input handling
+  const aiInput = document.getElementById('duddas-ai-input');
+  const aiSend = document.getElementById('duddas-ai-send');
+
+  aiSend.onclick = () => sendAIQuery(aiInput.value);
+  aiInput.onkeypress = (e) => {
+    if (e.key === 'Enter') sendAIQuery(aiInput.value);
+  };
+
+  // Quick action buttons
+  document.querySelectorAll('.duddas-quick-btn').forEach(btn => {
+    btn.onclick = () => sendAIQuery(btn.dataset.query);
+  });
+
+  // Force Sync button
   document.getElementById('duddas-force-sync').onclick = () => {
     const data = extractConversationData();
     if (data.phone && data.messages.length > 0) {
-      lastFullSyncHash = ''; // Reset to force sync
+      lastFullSyncHash = '';
       sendToDashboard(data, true);
-      showNotif(`✅ Synced ${data.messages.length} messages for ${data.contactName || data.phone}`, 'success');
+      showNotif(`✅ Synced ${data.messages.length} messages`, 'success');
     } else {
       showNotif('❌ No conversation open', 'error');
     }
   };
 }
 
-// Update the current lead display in status indicator
-function updateCurrentLeadDisplay() {
-  const leadEl = document.getElementById('duddas-current-lead');
-  const dotEl = document.getElementById('duddas-sync-dot');
-  if (!leadEl || !dotEl) return;
+// Send query to AI endpoint
+async function sendAIQuery(query) {
+  if (!query || !query.trim()) return;
 
-  if (currentPhone) {
-    const data = extractConversationData();
-    leadEl.textContent = `📱 ${data.contactName || currentPhone} (${data.messages.length} msgs)`;
-    dotEl.style.background = '#22c55e'; // Green = synced
-  } else {
-    leadEl.textContent = 'No conversation open';
-    dotEl.style.background = '#71717a'; // Gray = idle
+  const responseEl = document.getElementById('duddas-ai-response');
+  const inputEl = document.getElementById('duddas-ai-input');
+
+  responseEl.innerHTML = '<span style="color:#fbbf24;">🔄 Thinking...</span>';
+  inputEl.value = '';
+
+  try {
+    const res = await fetch(DASHBOARD_URL + '/api/ai/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: query.trim(),
+        currentPhone: currentPhone
+      })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      responseEl.innerHTML = formatAIResponse(data.response);
+    } else {
+      responseEl.innerHTML = `<span style="color:#ef4444;">❌ ${data.error || 'Failed to get response'}</span>`;
+    }
+  } catch (err) {
+    responseEl.innerHTML = `<span style="color:#ef4444;">❌ Connection error</span>`;
   }
+}
+
+// Format AI response with clickable leads
+function formatAIResponse(response) {
+  // Make phone numbers clickable
+  let formatted = response.replace(/\+1[\d\-\s]+/g, (match) => {
+    return `<span style="color:#60a5fa;cursor:pointer;text-decoration:underline;" onclick="searchForLead('${match}')">${match}</span>`;
+  });
+  return formatted;
+}
+
+// Update current lead info in the AI box
+function updateAIBoxLeadInfo() {
+  const nameEl = document.getElementById('duddas-lead-name');
+  const phoneEl = document.getElementById('duddas-lead-phone');
+  const suggestionBox = document.getElementById('duddas-suggestion-box');
+  const suggestionText = document.getElementById('duddas-suggestion-text');
+
+  if (!nameEl) return;
+
+  const data = extractConversationData();
+
+  if (data.phone && data.messages.length > 0) {
+    nameEl.textContent = data.contactName || 'Unknown';
+    phoneEl.textContent = data.phone;
+
+    // Get suggestion from server
+    fetchSuggestion(data.phone);
+  } else {
+    nameEl.textContent = 'No conversation open';
+    phoneEl.textContent = '';
+    suggestionBox.style.display = 'none';
+  }
+}
+
+// Fetch AI suggestion for current lead
+async function fetchSuggestion(phone) {
+  try {
+    const res = await fetch(DASHBOARD_URL + `/api/leads/${encodeURIComponent(phone.replace(/[^0-9+]/g, ''))}`);
+    const lead = await res.json();
+
+    const suggestionBox = document.getElementById('duddas-suggestion-box');
+    const suggestionText = document.getElementById('duddas-suggestion-text');
+
+    if (lead && lead.copyMessage) {
+      suggestionText.textContent = lead.copyMessage;
+      suggestionBox.style.display = 'block';
+    } else {
+      suggestionBox.style.display = 'none';
+    }
+  } catch (err) {
+    // Silently fail
+  }
+}
+
+// Update the current lead display in AI box
+function updateCurrentLeadDisplay() {
+  updateAIBoxLeadInfo();
 }
 
 // ============================================

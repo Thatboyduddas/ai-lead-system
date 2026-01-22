@@ -1495,6 +1495,163 @@ app.post('/api/leads/:phone/status', async (req, res) => {
   }
 });
 
+// ============ AI QUERY ENDPOINT ============
+app.post('/api/ai/query', async (req, res) => {
+  const { query, currentPhone } = req.body;
+
+  if (!query) {
+    return res.json({ success: false, error: 'No query provided' });
+  }
+
+  try {
+    const leads = await getAllLeads();
+    const q = query.toLowerCase();
+
+    let response = '';
+
+    // Search for specific content mentions
+    if (q.includes('golf') || q.includes('mention')) {
+      const searchTerm = q.match(/mention(?:ed|ing)?\s+(\w+)/)?.[1] ||
+                         q.match(/about\s+(\w+)/)?.[1] ||
+                         q.match(/(\w+)\s*\?/)?.[1] || 'golf';
+
+      const matches = leads.filter(l => {
+        const allText = (l.messages || []).map(m => m.text).join(' ').toLowerCase();
+        return allText.includes(searchTerm.toLowerCase());
+      });
+
+      if (matches.length > 0) {
+        response = `Found ${matches.length} lead(s) mentioning "${searchTerm}":\n\n`;
+        matches.slice(0, 5).forEach(l => {
+          const msg = (l.messages || []).find(m => m.text.toLowerCase().includes(searchTerm.toLowerCase()));
+          response += `• **${l.name || 'Unknown'}** (${l.phone})\n`;
+          if (msg) response += `  "${msg.text.substring(0, 80)}..."\n`;
+        });
+        if (matches.length > 5) response += `\n...and ${matches.length - 5} more`;
+      } else {
+        response = `No leads found mentioning "${searchTerm}"`;
+      }
+    }
+
+    // Follow-up queries
+    else if (q.includes('follow up') || q.includes('follow-up') || q.includes('followup')) {
+      const needsFollowUp = leads.filter(l => {
+        if (l.status === 'handled' || l.blocked) return false;
+        const lastMsg = (l.messages || [])[l.messages?.length - 1];
+        if (!lastMsg) return false;
+        // Needs follow-up if last message was from them (incoming) and it's been > 1 day
+        const daysSince = (Date.now() - new Date(lastMsg.timestamp).getTime()) / (1000 * 60 * 60 * 24);
+        return !lastMsg.isOutgoing && daysSince > 1;
+      });
+
+      if (needsFollowUp.length > 0) {
+        response = `📞 ${needsFollowUp.length} leads need follow-up:\n\n`;
+        needsFollowUp.slice(0, 8).forEach(l => {
+          const lastMsg = l.messages[l.messages.length - 1];
+          response += `• **${l.name || 'Unknown'}** - "${lastMsg?.text?.substring(0, 40)}..."\n`;
+        });
+      } else {
+        response = '✅ No urgent follow-ups needed!';
+      }
+    }
+
+    // Hot leads
+    else if (q.includes('hot')) {
+      const hot = leads.filter(l => l.category === 'hot' && !l.blocked && l.status !== 'handled');
+      if (hot.length > 0) {
+        response = `🔥 ${hot.length} hot leads:\n\n`;
+        hot.forEach(l => {
+          response += `• **${l.name || 'Unknown'}** (${l.phone}) - ${l.suggestedAction || 'Review'}\n`;
+        });
+      } else {
+        response = 'No hot leads right now.';
+      }
+    }
+
+    // Ready to book
+    else if (q.includes('ready') || q.includes('book') || q.includes('close')) {
+      const ready = leads.filter(l =>
+        (l.category === 'hot' || l.category === 'ready_for_quote') &&
+        !l.blocked && l.status !== 'handled'
+      );
+      if (ready.length > 0) {
+        response = `💰 ${ready.length} leads ready to close:\n\n`;
+        ready.forEach(l => {
+          response += `• **${l.name || 'Unknown'}** - ${l.suggestedAction || l.category}\n`;
+        });
+      } else {
+        response = 'No leads ready to close right now.';
+      }
+    }
+
+    // Stats
+    else if (q.includes('stats') || q.includes('how many') || q.includes('total')) {
+      const active = leads.filter(l => l.status !== 'handled' && !l.blocked);
+      const hot = active.filter(l => l.category === 'hot').length;
+      const quoted = active.filter(l => l.category === 'ready_for_quote').length;
+      const today = leads.filter(l => new Date(l.createdAt).toDateString() === new Date().toDateString()).length;
+
+      response = `📊 **Your Stats:**\n\n`;
+      response += `• Total Leads: ${leads.length}\n`;
+      response += `• Active: ${active.length}\n`;
+      response += `• Hot: ${hot}\n`;
+      response += `• Ready for Quote: ${quoted}\n`;
+      response += `• New Today: ${today}`;
+    }
+
+    // Search by name
+    else if (q.includes('find') || q.includes('search') || q.includes('where')) {
+      const nameMatch = q.match(/(?:find|search|where(?:'s| is)?)\s+(\w+)/i);
+      if (nameMatch) {
+        const searchName = nameMatch[1].toLowerCase();
+        const matches = leads.filter(l =>
+          (l.name || '').toLowerCase().includes(searchName)
+        );
+        if (matches.length > 0) {
+          response = `Found ${matches.length} match(es) for "${searchName}":\n\n`;
+          matches.forEach(l => {
+            response += `• **${l.name}** (${l.phone}) - ${l.category || 'Unknown'}\n`;
+          });
+        } else {
+          response = `No leads found matching "${searchName}"`;
+        }
+      }
+    }
+
+    // Default - general search
+    else {
+      // Try to find any leads matching keywords in the query
+      const words = q.split(/\s+/).filter(w => w.length > 3);
+      let matches = [];
+
+      for (const word of words) {
+        const found = leads.filter(l => {
+          const allText = `${l.name || ''} ${(l.messages || []).map(m => m.text).join(' ')}`.toLowerCase();
+          return allText.includes(word);
+        });
+        matches.push(...found);
+      }
+
+      matches = [...new Set(matches)]; // Remove duplicates
+
+      if (matches.length > 0) {
+        response = `Found ${matches.length} related lead(s):\n\n`;
+        matches.slice(0, 5).forEach(l => {
+          response += `• **${l.name || 'Unknown'}** (${l.phone})\n`;
+        });
+      } else {
+        response = `Try asking:\n• "Who mentioned [topic]?"\n• "Show hot leads"\n• "Who needs follow-up?"\n• "Find [name]"\n• "Show stats"`;
+      }
+    }
+
+    res.json({ success: true, response });
+
+  } catch (err) {
+    console.error('AI query error:', err);
+    res.json({ success: false, error: err.message });
+  }
+});
+
 app.get('/api/test', async (req, res) => {
   try {
     const leads = await getAllLeads();
