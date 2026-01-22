@@ -322,7 +322,7 @@ function detectIntent(message) {
 
 // ============ MESSAGE TEMPLATES ============
 const MESSAGES = {
-  ageGender: "Hey! I just need your age for the quote.",
+  ageGender: "Alright, may I have the age and gender of everyone who will be insured?",
   quote: (low, high) => `Assuming you have no major chronic/critical conditions, you can qualify for plans between $${low}-$${high}/month. Deductibles and networks are customizable ➡️ with $50 copays for primary care, specialists, and urgent care; $250 for ER; $250 for outpatient surgeries; and $500 for inpatient stays. Maximum out of pocket 5k. Plans include free ACA-compliant preventive care (immunizations, physicals, mammograms, Pap smears, colonoscopies).`,
   medicare: `We don't specialize in Medicare, but here is our referral. Her name is Faith, she's been doing this for over a decade. Text her here +1 (352) 900-3966 or get on her calendar. PLEASE mention Jack referred you! https://api.leadconnectorhq.com/widget/bookings/faithinsurancesolcalendar`
 };
@@ -349,7 +349,7 @@ function processMessage(message, context = {}) {
         category = 'wants_quote';
         priority = 'high';
         suggestedAction = '🔥 HOT LEAD - Need age for quote';
-        copyMessage = "Hey! I just need your age for the quote.";
+        copyMessage = "Alright, may I have the age and gender of everyone who will be insured?";
         tagToApply = 'Age and gender';
       }
       break;
@@ -426,7 +426,7 @@ function processMessage(message, context = {}) {
         category = 'soft_positive';
         priority = 'medium';
         suggestedAction = '👋 Greeting - ask for age';
-        copyMessage = "Hey! I just need your age for the quote.";
+        copyMessage = "Alright, may I have the age and gender of everyone who will be insured?";
         tagToApply = 'Age and gender';
       }
       break;
@@ -441,7 +441,7 @@ function processMessage(message, context = {}) {
         category = 'soft_positive';
         priority = 'medium';
         suggestedAction = '🤔 Interested - ask for age';
-        copyMessage = "Hey! I just need your age for the quote.";
+        copyMessage = "Alright, may I have the age and gender of everyone who will be insured?";
         tagToApply = 'Age and gender';
       }
       break;
@@ -456,7 +456,7 @@ function processMessage(message, context = {}) {
         category = 'review';
         priority = 'medium';
         suggestedAction = '👀 Review - need age';
-        copyMessage = "Hey! I just need your age for the quote.";
+        copyMessage = "Alright, may I have the age and gender of everyone who will be insured?";
       }
   }
   
