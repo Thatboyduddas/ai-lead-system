@@ -1,7 +1,7 @@
 // Duddas Quotes v1.0 - Simple Quote Tool
 // MAGA Theme - Focus on quoting clients
 
-const VERSION = "1.0.1";
+const VERSION = "1.0.2";
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
 
 let currentPhone = null;
@@ -233,10 +233,19 @@ function createAIPanel() {
   const existing = document.getElementById('duddas-quotes');
   if (existing) existing.remove();
 
-  // Load saved position
+  // Load saved position (with bounds checking)
   const savedPos = JSON.parse(localStorage.getItem('duddas-quotes-pos') || 'null');
-  const startLeft = savedPos?.left || '20px';
-  const startBottom = savedPos?.bottom || '20px';
+  let startLeft = savedPos?.left || '20px';
+  let startBottom = savedPos?.bottom || '20px';
+
+  // Reset if position is out of bounds
+  const leftNum = parseInt(startLeft);
+  const bottomNum = parseInt(startBottom);
+  if (leftNum < 0 || leftNum > window.innerWidth - 100 || bottomNum < 0 || bottomNum > window.innerHeight - 100) {
+    startLeft = '20px';
+    startBottom = '20px';
+    localStorage.removeItem('duddas-quotes-pos');
+  }
 
   const panel = document.createElement('div');
   panel.id = 'duddas-quotes';
