@@ -1,16 +1,18 @@
-// Duddas CRM v5.0 - Chrome Extension with Queue-Based Auto-Send
-// Auto-navigates to leads and sends messages from queue
+// Duddas CRM v5.1 - Chrome Extension with Auto-Sync
+// Fixed for SalesGod's actual HTML structure
 
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
 let lastSentHash = "";
+let lastFullSyncHash = "";
 let currentPhone = null;
 let pendingInProgress = false;
 let tagInProgress = false;
 let queueProcessing = false;
 let autoSendEnabled = false;
+let lastConversationPhone = null;
 
 // ============================================
-// CONVERSATION DATA EXTRACTION
+// CONVERSATION DATA EXTRACTION (Fixed for SalesGod)
 // ============================================
 
 function extractConversationData() {
@@ -19,13 +21,14 @@ function extractConversationData() {
   let currentTag = "";
   let allMessages = [];
   let isArchived = false;
-  let viewType = "recent"; // Default
+  let viewType = "recent";
 
   const text = document.body.innerText;
   const lines = text.split('\n').filter(l => l.trim());
 
+  // Find phone number in the conversation header
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].match(/^\+1\s?\d{3}-\d{3}-\d{4}/)) {
+    if (lines[i].match(/^\+1\s?\d{3}-\d{3}-\d{4}/) || lines[i].match(/^\+1\d{10}/)) {
       phone = lines[i];
       if (i > 0) contactName = lines[i - 1];
       break;
@@ -34,68 +37,155 @@ function extractConversationData() {
 
   if (phone) currentPhone = phone.replace(/[^0-9+]/g, '');
 
-  // Detect active tab/view in SalesGod (Unread, Recent, Archived, All)
-  const activeTabBtn = document.querySelector('button.bg-primary-500, button[class*="bg-blue"], button.active');
-  if (activeTabBtn) {
-    const tabText = activeTabBtn.innerText?.toLowerCase() || '';
-    if (tabText.includes('archived')) {
-      isArchived = true;
-      viewType = 'archived';
-    } else if (tabText.includes('unread')) {
-      viewType = 'unread';
-    } else if (tabText.includes('all')) {
-      viewType = 'all';
-    }
-  }
-
-  // Also check URL for archived indicator
-  if (window.location.href.includes('archived') || window.location.search.includes('archived')) {
-    isArchived = true;
-    viewType = 'archived';
-  }
-
-  const tags = ["Age and gender", "Quoted", "Follow up", "Ghosted", "Appointment Set", "Called: Answered", "Called: No Answer", "Deadline", "Did you receive?", "Another time", "Sold", "Dead", "Medicare Referral"];
-  for (const tag of tags) {
-    if (text.includes(tag)) { currentTag = tag; break; }
-  }
-
-  document.querySelectorAll('.text-bubble').forEach(bubble => {
-    const msgText = bubble.innerText?.trim();
-    if (msgText && msgText.length > 0 && msgText.length < 2000) {
-      const isOutgoing = bubble.classList.contains('bg-outbound');
-      let cleanText = msgText.replace(/\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[AP]M\s*$/, '').trim();
-      if (cleanText.length > 0) {
-        allMessages.push({ text: cleanText, isOutgoing });
-      }
+  // Detect active tab/view in SalesGod
+  const tabButtons = document.querySelectorAll('button');
+  tabButtons.forEach(btn => {
+    const text = btn.innerText?.toLowerCase() || '';
+    const isActive = btn.classList.contains('bg-primary-500') ||
+                     btn.classList.contains('btn-primary') ||
+                     btn.style.backgroundColor?.includes('rgb');
+    if (isActive) {
+      if (text.includes('archived')) { isArchived = true; viewType = 'archived'; }
+      else if (text.includes('unread')) { viewType = 'unread'; }
+      else if (text.includes('all')) { viewType = 'all'; }
+      else if (text.includes('recent')) { viewType = 'recent'; }
     }
   });
 
-  return { contactName, phone, currentTag, messages: allMessages, lastMessage: allMessages[allMessages.length - 1] || null, isArchived, viewType };
+  // Get tag from dropdown if visible
+  const tagDropdown = document.querySelector('select, [class*="tag-select"]');
+  if (tagDropdown) {
+    currentTag = tagDropdown.value || '';
+  }
+
+  // FIXED: Extract messages using SalesGod's actual class names
+  // Messages are in <li> elements with class "chat-list"
+  // "left" class = incoming, "right" class = outgoing
+  const messageElements = document.querySelectorAll('li.chat-list, li[class*="chat-list"]');
+
+  messageElements.forEach(li => {
+    const classList = li.className || '';
+    const isOutgoing = classList.includes('right');
+    const isIncoming = classList.includes('left');
+
+    // Get the message text from inside the li
+    const messageDiv = li.querySelector('.message, [class*="message"], .flex-column');
+    let msgText = '';
+
+    if (messageDiv) {
+      msgText = messageDiv.innerText?.trim() || '';
+    } else {
+      // Fallback: get text directly but exclude timestamps/metadata
+      msgText = li.innerText?.trim() || '';
+    }
+
+    // Clean up the message text
+    msgText = msgText
+      .replace(/\d{1,2}\/\d{1,2}\/\d{4},?\s*\d{1,2}:\d{2}(:\d{2})?\s*[AP]M/gi, '') // Remove timestamps
+      .replace(/^\s*sent\s*$/i, '') // Remove "sent" labels
+      .replace(/^\s*delivered\s*$/i, '') // Remove "delivered" labels
+      .trim();
+
+    if (msgText && msgText.length > 0 && msgText.length < 2000 && (isOutgoing || isIncoming)) {
+      allMessages.push({
+        text: msgText,
+        isOutgoing: isOutgoing,
+        timestamp: new Date().toISOString() // SalesGod doesn't expose timestamps easily
+      });
+    }
+  });
+
+  // Fallback: try alternate selectors if no messages found
+  if (allMessages.length === 0) {
+    document.querySelectorAll('[class*="message"], [class*="bubble"], [class*="chat-message"]').forEach(el => {
+      const msgText = el.innerText?.trim();
+      if (msgText && msgText.length > 0 && msgText.length < 2000) {
+        // Try to determine direction from parent classes or position
+        const parent = el.closest('li, div');
+        const parentClass = parent?.className || '';
+        const isOutgoing = parentClass.includes('right') || parentClass.includes('outbound') || parentClass.includes('sent');
+        allMessages.push({ text: msgText, isOutgoing });
+      }
+    });
+  }
+
+  console.log(`📱 Extracted: ${contactName} | ${phone} | ${allMessages.length} messages`);
+
+  return {
+    contactName,
+    phone,
+    currentTag,
+    messages: allMessages,
+    lastMessage: allMessages[allMessages.length - 1] || null,
+    isArchived,
+    viewType
+  };
 }
 
-function sendToDashboard(data) {
+function sendToDashboard(data, forceFullSync = false) {
   if (!data.phone || data.messages.length === 0) return;
   const lastMsg = data.lastMessage;
   if (!lastMsg) return;
 
-  const dataHash = data.phone + "|" + data.messages.length + "|" + lastMsg.text.substring(0, 100);
-  if (dataHash === lastSentHash) return;
-  lastSentHash = dataHash;
+  // Check if this is a new conversation (different phone) - trigger full sync
+  const isNewConversation = data.phone !== lastConversationPhone;
+  if (isNewConversation) {
+    lastConversationPhone = data.phone;
+    forceFullSync = true; // Always full sync when switching conversations
+    console.log(`📞 New conversation detected: ${data.phone} - triggering full sync`);
+  }
 
-  fetch(DASHBOARD_URL + "/webhook/salesgod", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      phone: data.phone,
-      full_name: data.contactName,
-      messages_as_string: lastMsg.text,
-      status: data.currentTag || "new",
-      isOutgoing: lastMsg.isOutgoing,
-      messageCount: data.messages.length,
-      isArchived: data.isArchived || false,
-      viewType: data.viewType || "recent"
-    })
-  }).catch(() => {});
+  // For full sync, use a different hash to track
+  const fullSyncHash = data.phone + "|full|" + data.messages.length;
+  const quickSyncHash = data.phone + "|" + data.messages.length + "|" + lastMsg.text.substring(0, 100);
+
+  if (forceFullSync) {
+    // Full sync - send ALL messages
+    if (fullSyncHash === lastFullSyncHash) return;
+    lastFullSyncHash = fullSyncHash;
+
+    console.log(`📤 Full sync: ${data.phone} with ${data.messages.length} messages`);
+
+    fetch(DASHBOARD_URL + "/webhook/salesgod", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: data.phone,
+        full_name: data.contactName,
+        messages_as_string: lastMsg.text,
+        status: data.currentTag || "new",
+        isOutgoing: lastMsg.isOutgoing,
+        messageCount: data.messages.length,
+        isArchived: data.isArchived || false,
+        viewType: data.viewType || "recent",
+        fullSync: true,
+        allMessages: data.messages
+      })
+    }).then(() => {
+      console.log(`✅ Full sync complete for ${data.phone}`);
+    }).catch(err => {
+      console.error(`❌ Full sync failed:`, err);
+    });
+  } else {
+    // Quick sync - just the last message (for real-time updates)
+    if (quickSyncHash === lastSentHash) return;
+    lastSentHash = quickSyncHash;
+
+    fetch(DASHBOARD_URL + "/webhook/salesgod", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        phone: data.phone,
+        full_name: data.contactName,
+        messages_as_string: lastMsg.text,
+        status: data.currentTag || "new",
+        isOutgoing: lastMsg.isOutgoing,
+        messageCount: data.messages.length,
+        isArchived: data.isArchived || false,
+        viewType: data.viewType || "recent"
+      })
+    }).catch(() => {});
+  }
 }
 
 // ============================================
@@ -509,7 +599,51 @@ async function checkPendingSends() {
 
 function checkAndSync() {
   const data = extractConversationData();
-  if (data.messages.length > 0 && data.phone) sendToDashboard(data);
+  if (data.messages.length > 0 && data.phone) {
+    sendToDashboard(data, false); // Quick sync by default
+  }
+}
+
+// Auto full-sync when conversation changes
+let conversationCheckInterval = null;
+function monitorConversationChanges() {
+  const data = extractConversationData();
+  if (data.phone && data.phone !== lastConversationPhone && data.messages.length > 0) {
+    // New conversation opened - full sync
+    sendToDashboard(data, true);
+  }
+}
+
+// Watch for DOM changes that indicate a new conversation was opened
+const conversationObserver = new MutationObserver((mutations) => {
+  // Debounce - wait for DOM to settle
+  clearTimeout(window.domSettleTimeout);
+  window.domSettleTimeout = setTimeout(() => {
+    const data = extractConversationData();
+    if (data.phone && data.messages.length > 0) {
+      // Check if this is a genuinely new conversation
+      const newHash = data.phone + '|' + data.messages.length;
+      if (newHash !== window.lastObservedHash) {
+        window.lastObservedHash = newHash;
+        sendToDashboard(data, true); // Full sync on any significant change
+      }
+    }
+  }, 1000);
+});
+
+// Start observing the page for changes
+function startConversationMonitoring() {
+  const chatContainer = document.querySelector('[class*="chat"], [class*="conversation"], [class*="messages"], main, #app');
+  if (chatContainer) {
+    conversationObserver.observe(chatContainer, {
+      childList: true,
+      subtree: true
+    });
+    console.log('👀 Monitoring SalesGod for conversation changes');
+  } else {
+    // Retry if container not found yet
+    setTimeout(startConversationMonitoring, 2000);
+  }
 }
 
 // ============================================
@@ -541,12 +675,13 @@ function createStatusIndicator() {
   `;
   indicator.innerHTML = `
     <div style="display:flex;align-items:center;gap:8px;">
-      <span style="width:8px;height:8px;background:#22c55e;border-radius:50%;"></span>
-      <span style="font-weight:bold;">Duddas CRM v5.0</span>
+      <span id="duddas-sync-dot" style="width:8px;height:8px;background:#22c55e;border-radius:50%;transition:background 0.3s;"></span>
+      <span style="font-weight:bold;">Duddas CRM v5.1</span>
       <span id="duddas-queue-count" style="background:#3b82f6;padding:2px 6px;border-radius:10px;font-size:10px;">0</span>
     </div>
+    <div id="duddas-current-lead" style="font-size:10px;color:#a1a1aa;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Auto-syncing...</div>
     <div style="display:flex;gap:6px;">
-      <button id="duddas-sync-all" style="background:#fbbf24;color:#000;border:none;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:bold;cursor:pointer;">📥 Sync All</button>
+      <button id="duddas-force-sync" style="background:#22c55e;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:bold;cursor:pointer;">🔄 Force Sync</button>
       <button id="duddas-queue-btn" style="background:#3b82f6;color:#fff;border:none;padding:4px 8px;border-radius:4px;font-size:10px;cursor:pointer;">Queue</button>
     </div>
     <div id="duddas-sync-status" style="font-size:10px;color:#fbbf24;display:none;"></div>
@@ -561,8 +696,33 @@ function createStatusIndicator() {
     alert(`Queue Status:\n\nAuto-Send: ${data.autoSendEnabled ? 'ON' : 'OFF'}\nMessages in queue: ${data.count}\n\n${data.queue.map(q => `• ${q.name || q.phone}: "${q.message.substring(0,30)}..."`).join('\n') || 'Queue empty'}`);
   };
 
-  // Sync All button click
-  document.getElementById('duddas-sync-all').onclick = () => syncAllHistory();
+  // Force Sync button - syncs current conversation immediately
+  document.getElementById('duddas-force-sync').onclick = () => {
+    const data = extractConversationData();
+    if (data.phone && data.messages.length > 0) {
+      lastFullSyncHash = ''; // Reset to force sync
+      sendToDashboard(data, true);
+      showNotif(`✅ Synced ${data.messages.length} messages for ${data.contactName || data.phone}`, 'success');
+    } else {
+      showNotif('❌ No conversation open', 'error');
+    }
+  };
+}
+
+// Update the current lead display in status indicator
+function updateCurrentLeadDisplay() {
+  const leadEl = document.getElementById('duddas-current-lead');
+  const dotEl = document.getElementById('duddas-sync-dot');
+  if (!leadEl || !dotEl) return;
+
+  if (currentPhone) {
+    const data = extractConversationData();
+    leadEl.textContent = `📱 ${data.contactName || currentPhone} (${data.messages.length} msgs)`;
+    dotEl.style.background = '#22c55e'; // Green = synced
+  } else {
+    leadEl.textContent = 'No conversation open';
+    dotEl.style.background = '#71717a'; // Gray = idle
+  }
 }
 
 // ============================================
@@ -666,6 +826,9 @@ async function updateStatusIndicator() {
       countEl.style.background = data.count > 0 ? '#ef4444' : '#3b82f6';
     }
     autoSendEnabled = data.autoSendEnabled;
+
+    // Update current lead display
+    updateCurrentLeadDisplay();
   } catch (err) {}
 }
 
@@ -673,13 +836,19 @@ async function updateStatusIndicator() {
 // INITIALIZATION
 // ============================================
 
-console.log("🚀 Duddas CRM v5.0 - Queue-Based Auto-Send");
+console.log("🚀 Duddas CRM v5.1 - Auto-Sync Edition");
 
 // Create status indicator
 setTimeout(createStatusIndicator, 2000);
 
-// Regular sync of current conversation
+// Start monitoring for conversation changes (MutationObserver)
+setTimeout(startConversationMonitoring, 3000);
+
+// Regular sync of current conversation (backup polling)
 setInterval(checkAndSync, 3000);
+
+// Monitor for conversation changes (backup)
+setInterval(monitorConversationChanges, 2000);
 
 // Check for pending sends (current lead - legacy)
 setInterval(checkPendingSends, 3000);
@@ -697,6 +866,23 @@ setInterval(updateStatusIndicator, 5000);
 setInterval(checkAutoSendStatus, 10000);
 
 // Initial checks
-document.addEventListener("click", () => setTimeout(checkAndSync, 500));
-setTimeout(checkAndSync, 1000);
+document.addEventListener("click", () => {
+  // Full sync on any click (user opened a conversation)
+  setTimeout(() => {
+    const data = extractConversationData();
+    if (data.phone && data.messages.length > 0) {
+      sendToDashboard(data, true);
+    }
+  }, 800);
+});
+
+// Initial full sync
+setTimeout(() => {
+  const data = extractConversationData();
+  if (data.phone && data.messages.length > 0) {
+    sendToDashboard(data, true);
+    console.log('📤 Initial full sync complete');
+  }
+}, 2000);
+
 setTimeout(checkAutoSendStatus, 1000);
