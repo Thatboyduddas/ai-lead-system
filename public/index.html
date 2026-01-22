@@ -607,6 +607,110 @@
     }
 
     /* Action Area */
+    /* Simulation Box */
+    .simulation-box {
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(13, 20, 36, 0.9) 100%);
+      border: 2px solid rgba(34, 197, 94, 0.3);
+      border-radius: var(--radius-lg);
+      padding: 16px 20px;
+      margin: 0 20px 16px 20px;
+    }
+    .simulation-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .simulation-label {
+      font-size: 11px;
+      color: var(--green-primary);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .simulation-badge {
+      font-size: 9px;
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--green-primary);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+    .simulation-input-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .simulation-input-row input {
+      flex: 1;
+      padding: 12px 14px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      color: #fff;
+      font-size: 14px;
+    }
+    .simulation-input-row input:focus {
+      outline: none;
+      border-color: var(--green-primary);
+    }
+    .simulate-btn {
+      padding: 12px 20px;
+      background: linear-gradient(135deg, var(--green-primary), #16a34a);
+      border: none;
+      border-radius: var(--radius-md);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .simulate-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    }
+    .simulation-quick-replies {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .simulation-quick-replies button {
+      padding: 6px 12px;
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 6px;
+      color: var(--green-primary);
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .simulation-quick-replies button:hover {
+      background: rgba(34, 197, 94, 0.25);
+    }
+
+    /* Editable Response */
+    .editable-response {
+      width: 100%;
+      padding: 14px;
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      color: #fff;
+      font-size: 14px;
+      line-height: 1.6;
+      resize: vertical;
+      font-family: inherit;
+      margin-bottom: 14px;
+    }
+    .editable-response:focus {
+      outline: none;
+      border-color: var(--gold-primary);
+    }
+
+    .simulate-send {
+      background: linear-gradient(135deg, var(--green-primary), #16a34a) !important;
+    }
+
     .action-area {
       padding: 24px 28px;
       background: var(--bg-secondary);
@@ -1765,6 +1869,28 @@
       .no-lead-icon {
         font-size: 48px;
       }
+
+      /* Simulation box mobile */
+      .simulation-box {
+        margin: 0 12px 12px 12px;
+        padding: 12px;
+      }
+      .simulation-input-row {
+        flex-direction: column;
+      }
+      .simulate-btn {
+        width: 100%;
+      }
+      .simulation-quick-replies {
+        gap: 6px;
+      }
+      .simulation-quick-replies button {
+        font-size: 10px;
+        padding: 5px 8px;
+      }
+      .editable-response {
+        font-size: 13px;
+      }
     }
 
     /* Extra small screens */
@@ -2270,6 +2396,116 @@
       }
     }
 
+    // ============ SIMULATION FUNCTIONS ============
+    function quickSimulate(text) {
+      document.getElementById('simulate-lead-input').value = text;
+      simulateLeadReply();
+    }
+
+    async function simulateLeadReply() {
+      const input = document.getElementById('simulate-lead-input');
+      const text = input.value.trim();
+      if (!text || !selectedLead) return;
+
+      const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+
+      // Add message visually as incoming
+      const container = document.getElementById('messages-container');
+      if (container) {
+        const msgBubble = document.createElement('div');
+        msgBubble.className = 'message-bubble incoming sending-animation';
+        msgBubble.innerHTML = `
+          <div style="white-space: pre-wrap;">${text}</div>
+          <div class="message-time">Lead | ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+        `;
+        container.appendChild(msgBubble);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      // Send to webhook to process
+      try {
+        await fetch('/webhook/salesgod', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: selectedLead.phone,
+            full_name: selectedLead.name,
+            messages_as_string: text,
+            status: selectedLead.currentTag,
+            isOutgoing: false
+          })
+        });
+
+        input.value = '';
+        showToast('Lead reply simulated!', 'success');
+
+        // Reload to get new AI suggestion
+        setTimeout(() => {
+          loadLeads();
+          setTimeout(() => openLead(selectedLead.phone), 300);
+        }, 500);
+      } catch (err) {
+        console.error('Simulation error:', err);
+        showToast('Error simulating reply', 'error');
+      }
+    }
+
+    async function simulateSendMessage() {
+      if (!selectedLead) return;
+
+      const textarea = document.getElementById('editable-response');
+      const messageText = textarea ? textarea.value.trim() : selectedLead.copyMessage;
+      if (!messageText) return;
+
+      const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+
+      // Add message visually as outgoing
+      const container = document.getElementById('messages-container');
+      if (container) {
+        const msgBubble = document.createElement('div');
+        msgBubble.className = 'message-bubble outgoing sending-animation';
+        msgBubble.innerHTML = `
+          <div style="white-space: pre-wrap;">${messageText}</div>
+          <div class="message-time">You | ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ✓</div>
+        `;
+        container.appendChild(msgBubble);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      // Send as outgoing to update state
+      try {
+        await fetch('/webhook/salesgod', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phone: selectedLead.phone,
+            full_name: selectedLead.name,
+            messages_as_string: messageText,
+            status: selectedLead.currentTag,
+            isOutgoing: true
+          })
+        });
+
+        showToast('Message sent (simulated)!', 'success');
+
+        // Reload to update state
+        setTimeout(() => {
+          loadLeads();
+          setTimeout(() => openLead(selectedLead.phone), 300);
+        }, 500);
+      } catch (err) {
+        console.error('Simulation error:', err);
+      }
+    }
+
+    function copyEditedMessage() {
+      const textarea = document.getElementById('editable-response');
+      if (textarea) {
+        navigator.clipboard.writeText(textarea.value);
+        showToast('Copied!', 'success');
+      }
+    }
+
     // ============ EXISTING FUNCTIONS ============
     function toggleAutoSend() {
       autoSendEnabled = document.getElementById('auto-send-toggle').checked;
@@ -2501,19 +2737,38 @@
           }
         </div>
 
+        <!-- Simulation Mode: Type as Lead -->
+        <div class="simulation-box">
+          <div class="simulation-header">
+            <span class="simulation-label">SIMULATE LEAD REPLY</span>
+            <span class="simulation-badge">TEST MODE</span>
+          </div>
+          <div class="simulation-input-row">
+            <input type="text" id="simulate-lead-input" placeholder="Type what the lead would say... (e.g. 'yes' or '35 male')" onkeypress="if(event.key==='Enter')simulateLeadReply()">
+            <button class="simulate-btn" onclick="simulateLeadReply()">Send as Lead</button>
+          </div>
+          <div class="simulation-quick-replies">
+            <button onclick="quickSimulate('Yes')">Yes</button>
+            <button onclick="quickSimulate('Yeah I\\'m interested')">Interested</button>
+            <button onclick="quickSimulate('35 male')">35 male</button>
+            <button onclick="quickSimulate('42 female')">42 female</button>
+            <button onclick="quickSimulate('28 m and 26 f')">Couple</button>
+            <button onclick="quickSimulate('45 m wife is 43 2 kids')">Family</button>
+          </div>
+        </div>
+
         <div class="action-area">
           ${lead.copyMessage ? `
             <div class="copy-suggestion">
               <div class="copy-suggestion-header">
-                <span class="copy-suggestion-title">SUGGESTED RESPONSE</span>
+                <span class="copy-suggestion-title">YOUR RESPONSE</span>
                 <span class="copy-suggestion-tag">${lead.tagToApply || 'None'}</span>
               </div>
-              <div class="copy-suggestion-text" id="current-suggestion">${lead.copyMessage}</div>
+              <textarea class="editable-response" id="editable-response" rows="4">${lead.copyMessage}</textarea>
               <div class="send-buttons">
-                <button class="copy-btn" onclick="copyMessage(this)">Copy</button>
-                <button class="send-btn" onclick="sendMessage(this)">Send in SalesGod</button>
+                <button class="copy-btn" onclick="copyEditedMessage()">Copy</button>
+                <button class="send-btn simulate-send" onclick="simulateSendMessage()">Send (Simulate)</button>
               </div>
-              <div class="auto-send-note">Requires SalesGod tab open with this contact selected</div>
 
               <div class="ai-chat-box">
                 <div class="ai-chat-label">Refine with AI</div>
@@ -2531,7 +2786,7 @@
             </div>
           ` : lead.category === 'waiting' ? `
             <div class="waiting-state">
-              <span>Waiting for response - you already replied</span>
+              <span>Waiting for lead response - use simulation above to test</span>
             </div>
           ` : lead.category === 'dead' ? `
             <div class="dead-state">
