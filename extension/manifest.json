@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Duddas AI Assistant 🦅",
-  "version": "6.0.4",
+  "version": "6.0.5",
   "description": "AI-powered assistant for SalesGod. Ask questions, get suggestions, search your leads.",
   "permissions": ["storage"],
   "host_permissions": ["https://www.salesgodcrm.net/*", "https://ai-lead-system-production-df0a.up.railway.app/*"],

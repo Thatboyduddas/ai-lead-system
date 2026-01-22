@@ -1,8 +1,8 @@
-// Duddas CRM v6.0.4 - Chrome Extension with AI Assistant
+// Duddas CRM v6.0.5 - Chrome Extension with AI Assistant
 // Fixed for SalesGod's actual HTML structure
 
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
-const VERSION = "6.0.4";
+const VERSION = "6.0.5";
 let lastSentHash = "";
 let lastFullSyncHash = "";
 let currentPhone = null;
@@ -243,6 +243,45 @@ function sendToDashboard(data, forceFullSync = false, bypassSyncCheck = false) {
 
 let lastQuoteCheckHash = '';
 
+// Remove an existing tag by clicking its X button
+async function removeExistingTag(tagName) {
+  // Look for the tag badge with an X/close button
+  const tagElements = document.querySelectorAll('[class*="tag"], [class*="badge"], [class*="chip"]');
+
+  for (const el of tagElements) {
+    const text = el.innerText?.toLowerCase() || '';
+    if (text.includes(tagName.toLowerCase())) {
+      // Find the X/close button inside or near this element
+      const closeBtn = el.querySelector('button, [class*="close"], [class*="remove"], svg, .x');
+      if (closeBtn) {
+        closeBtn.click();
+        console.log(`🗑️ Removed tag: ${tagName}`);
+        return true;
+      }
+      // Try clicking the X directly if it's part of the element text (like "Age and gender ×")
+      const xButton = el.querySelector('span:last-child, button:last-child');
+      if (xButton) {
+        xButton.click();
+        return true;
+      }
+    }
+  }
+
+  // Also try looking for the ⓧ symbol in the dropdown header area
+  const dropdownArea = document.querySelector('[class*="tag-select"], [class*="dropdown"]');
+  if (dropdownArea) {
+    const closeIcons = dropdownArea.querySelectorAll('svg, [class*="close"], [class*="clear"]');
+    for (const icon of closeIcons) {
+      if (icon.closest('button') || icon.onclick) {
+        icon.click();
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 async function checkForQuoteSent(data) {
   if (!data.phone || !data.messages || data.messages.length === 0) return;
 
@@ -259,7 +298,11 @@ async function checkForQuoteSent(data) {
 
       console.log('💰 Quote detected - updating tags');
 
-      // 1. Apply "Quoted" tag in SalesGod UI
+      // 1. Remove "Age and gender" tag first (click the X button)
+      await removeExistingTag('Age and gender');
+      await new Promise(r => setTimeout(r, 500));
+
+      // 2. Apply "Quoted" tag in SalesGod UI
       const tagApplied = await applyTag('Quoted');
       if (tagApplied) {
         showNotif('✅ Tagged as Quoted', 'success');
@@ -564,6 +607,15 @@ function findTagDropdown() {
 
 async function clickTagOption(tagName) {
   await new Promise(r => setTimeout(r, 300));
+
+  // First try to find and use search box
+  const searchBox = document.querySelector('input[placeholder*="search"], input[placeholder*="Search"], input[type="search"]');
+  if (searchBox) {
+    searchBox.focus();
+    searchBox.value = tagName;
+    searchBox.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 500)); // Wait for filter
+  }
 
   const allOptions = document.querySelectorAll(
     'li, [role="option"], [role="menuitem"], option, ' +
