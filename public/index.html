@@ -2554,25 +2554,31 @@
 
         // Reload to get new AI suggestion
         const phoneToReload = selectedLead.phone;
+        const shouldAutoSend = autoSendEnabled; // Capture value now
+        console.log('Auto-send enabled:', shouldAutoSend);
+
         setTimeout(async () => {
           await loadLeads();
           setTimeout(() => {
             openLead(phoneToReload);
 
             // If auto-send is enabled, automatically send the response after a delay
-            if (autoSendEnabled) {
+            if (shouldAutoSend) {
+              console.log('Auto-send triggered, waiting for textarea...');
               setTimeout(() => {
-                // Check that we have a message to send
                 const textarea = document.getElementById('editable-response');
-                const msg = textarea?.value?.trim() || selectedLead?.copyMessage;
+                const msg = textarea?.value?.trim();
+                console.log('Message to send:', msg);
                 if (msg) {
                   showToast('Auto-sending...', 'success');
                   simulateSendMessage();
+                } else {
+                  console.log('No message found in textarea');
                 }
-              }, 1000);
+              }, 1200);
             }
-          }, 500);
-        }, 800);
+          }, 600);
+        }, 1000);
       } catch (err) {
         console.error('Simulation error:', err);
         showToast('Error simulating reply', 'error');
@@ -2878,6 +2884,8 @@
     function toggleAutoSend() {
       autoSendEnabled = document.getElementById('auto-send-toggle').checked;
       localStorage.setItem('autoSendEnabled', autoSendEnabled);
+      console.log('Auto-send toggled:', autoSendEnabled);
+      showToast(autoSendEnabled ? 'Auto-Send ON' : 'Auto-Send OFF', autoSendEnabled ? 'success' : 'info');
       fetch('/api/settings/auto-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2912,9 +2920,11 @@
 
     window.addEventListener('load', () => {
       const saved = localStorage.getItem('autoSendEnabled');
+      console.log('Loading autoSendEnabled from localStorage:', saved);
       if (saved === 'true') {
         document.getElementById('auto-send-toggle').checked = true;
         autoSendEnabled = true;
+        console.log('Auto-send initialized to TRUE');
       }
       const savedTag = localStorage.getItem('autoTagEnabled');
       if (savedTag === 'true') {
