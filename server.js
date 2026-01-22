@@ -1867,6 +1867,62 @@ app.post('/api/leads/:phone/quote-sent', async (req, res) => {
   }
 });
 
+// ============ SUGGESTION ADJUSTMENT ============
+
+// Adjust a suggestion based on user instruction
+app.post('/api/adjust-suggestion', async (req, res) => {
+  try {
+    const { original, instruction, context } = req.body;
+
+    if (!original || !instruction) {
+      return res.status(400).json({ error: 'Missing original or instruction' });
+    }
+
+    // Simple rule-based adjustments (no external AI needed)
+    let adjusted = original;
+
+    const inst = instruction.toLowerCase();
+
+    // Push for call
+    if (inst.includes('call') || inst.includes('phone')) {
+      adjusted = `Are you available for a quick 5-10 minute call with Jack to go over everything? I can answer all your questions and help you find the best option for your situation.`;
+    }
+    // More casual
+    else if (inst.includes('casual') || inst.includes('less ai') || inst.includes('human')) {
+      adjusted = original
+        .replace('Assuming you have no major chronic/critical conditions, you', 'If you\'re generally healthy, you')
+        .replace('you can qualify for plans', 'you\'re looking at plans')
+        .replace('Deductibles and networks are customizable with', 'with')
+        .replace('That way you have all the info you need to make the best decision.', 'Happy to answer any questions!')
+        .replace('ACA-compliant preventive care', 'free preventive care');
+      if (adjusted === original) {
+        adjusted = original.replace(/\.$/, '') + ' - just let me know what works for you!';
+      }
+    }
+    // Add urgency
+    else if (inst.includes('urgency') || inst.includes('urgent')) {
+      adjusted = original + '\n\nThese rates are based on current availability - they can change, so best to lock in soon if you\'re interested!';
+    }
+    // Shorter
+    else if (inst.includes('short') || inst.includes('brief')) {
+      adjusted = original.split('.').slice(0, 2).join('.') + '.';
+    }
+    // Friendlier
+    else if (inst.includes('friend') || inst.includes('warm')) {
+      adjusted = 'Hey! ' + original.charAt(0).toLowerCase() + original.slice(1);
+    }
+    // Default - just return original
+    else {
+      adjusted = original;
+    }
+
+    res.json({ adjusted });
+  } catch (err) {
+    console.error('Adjust suggestion error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============ PENDING MESSAGES FOR AUTO-SEND ============
 
 // Get ALL pending messages in the queue (for extension auto-send)
