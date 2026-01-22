@@ -2859,7 +2859,9 @@
       const messageText = textarea ? textarea.value.trim() : selectedLead.copyMessage;
       if (!messageText) return;
 
-      const phone = selectedLead.phone.replace(/[^0-9+]/g, '');
+      // Capture current lead phone to prevent cross-convo issues
+      const currentPhone = selectedLead.phone;
+      const phone = currentPhone.replace(/[^0-9+]/g, '');
 
       // Add message visually as outgoing
       const container = document.getElementById('messages-container');
@@ -2902,10 +2904,15 @@
           showToast('Message sent!', 'success');
         }
 
-        // Auto-generate lead reply after a delay
+        // Auto-generate lead reply after a delay (slower pace, check same lead)
         setTimeout(() => {
-          autoGenerateLeadReply(messageText);
-        }, 1500);
+          // Only auto-reply if still on same lead
+          if (selectedLead?.phone === currentPhone) {
+            autoGenerateLeadReply(messageText);
+          } else {
+            console.log('Lead changed, skipping auto-reply');
+          }
+        }, 2500);
 
       } catch (err) {
         console.error('Simulation error:', err);
@@ -2996,17 +3003,24 @@
       }).then(async () => {
         showToast('Lead replied!', 'info');
 
-        // Wait for server to process
-        await new Promise(r => setTimeout(r, 800));
+        // Wait for server to process (slower pace)
+        await new Promise(r => setTimeout(r, 1500));
         await loadLeads();
-        await new Promise(r => setTimeout(r, 400));
+        await new Promise(r => setTimeout(r, 800));
         openLead(phoneToReload);
 
-        // AUTO-SEND if enabled
-        if (shouldAutoSend) {
-          await new Promise(r => setTimeout(r, 1000));
+        // AUTO-SEND if enabled - BUT CHECK WE'RE STILL ON SAME LEAD
+        if (shouldAutoSend && selectedLead?.phone === phoneToReload) {
+          await new Promise(r => setTimeout(r, 2000)); // 2 second pause to read
+
+          // Double-check we're still on the same lead
+          if (selectedLead?.phone !== phoneToReload) {
+            console.log('Lead changed, canceling auto-send');
+            return;
+          }
+
           showToast('Auto-sending response...', 'success');
-          await new Promise(r => setTimeout(r, 300));
+          await new Promise(r => setTimeout(r, 1000));
           simulateSendMessage();
         }
       });
