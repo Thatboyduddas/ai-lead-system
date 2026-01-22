@@ -1,7 +1,7 @@
 // Duddas Quotes v1.0 - Simple Quote Tool
 // MAGA Theme - Focus on quoting clients
 
-const VERSION = "1.0.3";
+const VERSION = "1.0.4";
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
 
 let currentPhone = null;
@@ -517,6 +517,25 @@ function showNotif(message, type = 'info') {
 
 console.log(`🦅 Duddas Quotes v${VERSION} loaded`);
 
+// Track last seen message for auto-refresh
+let lastSeenMessage = '';
+let lastSeenPhone = '';
+
+function checkForNewMessages() {
+  const data = extractConversationData();
+
+  // Check if there's a new message or different conversation
+  const currentLastMsg = data.lastIncoming?.text || '';
+  const currentPhone = data.phone || '';
+
+  if (currentLastMsg !== lastSeenMessage || currentPhone !== lastSeenPhone) {
+    lastSeenMessage = currentLastMsg;
+    lastSeenPhone = currentPhone;
+    updatePanel();
+    console.log('🦅 New message detected, refreshing panel');
+  }
+}
+
 // Create panel after page loads
 setTimeout(createAIPanel, 2000);
 
@@ -531,3 +550,6 @@ document.addEventListener('click', () => {
 
 // Initial update
 setTimeout(updatePanel, 3000);
+
+// Auto-refresh every 3 seconds to catch new messages
+setInterval(checkForNewMessages, 3000);
