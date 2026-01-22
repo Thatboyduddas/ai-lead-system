@@ -1121,6 +1121,24 @@ app.post('/api/leads/:phone/tags', async (req, res) => {
   }
 });
 
+// Get all pending tags (for debugging/monitoring)
+app.get('/api/tags/pending', async (req, res) => {
+  try {
+    const leads = await getAllLeads();
+    const pending = leads
+      .filter(l => l.tagToApply && !l.tagApplied)
+      .map(l => ({
+        phone: l.phone,
+        name: l.name,
+        tagToApply: l.tagToApply,
+        currentTag: l.currentTag
+      }));
+    res.json({ pending, count: pending.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Clear tag after extension applies it
 app.delete('/api/leads/:phone/tag', async (req, res) => {
   const phone = req.params.phone.replace(/[^0-9+]/g, '');

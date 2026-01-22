@@ -300,7 +300,12 @@ async function applyTag(tagName) {
 }
 
 async function checkPendingTags() {
-  if (!currentPhone || tagInProgress) return;
+  if (tagInProgress) return;
+
+  // First, extract current phone from the page
+  extractConversationData();
+
+  if (!currentPhone) return;
   tagInProgress = true;
 
   try {
@@ -308,8 +313,10 @@ async function checkPendingTags() {
     const data = await res.json();
 
     if (data.tagToApply) {
+      console.log(`📋 Pending tag found for ${currentPhone}: ${data.tagToApply}`);
       const success = await applyTag(data.tagToApply);
       if (success) {
+        console.log(`✅ Tag "${data.tagToApply}" applied successfully!`);
         // Mark tag as applied
         await fetch(DASHBOARD_URL + `/api/leads/${encodeURIComponent(currentPhone)}/tag`, {
           method: 'DELETE'
