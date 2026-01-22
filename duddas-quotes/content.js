@@ -1,7 +1,7 @@
 // Duddas Quotes v1.0 - Simple Quote Tool
 // MAGA Theme - Focus on quoting clients
 
-const VERSION = "1.0";
+const VERSION = "1.0.1";
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
 
 let currentPhone = null;
@@ -149,21 +149,21 @@ function analyzeMessage(message) {
     };
   }
 
-  // Check for interest signals - push for call
-  const interestWords = ['yes', 'sure', 'ok', 'okay', 'interested', 'tell me more', 'how much', 'quote', 'price'];
+  // Check for interest signals - ask for age to generate quote
+  const interestWords = ['yes', 'sure', 'ok', 'okay', 'interested', 'tell me more', 'how much', 'quote', 'price', 'sounds good', 'go ahead'];
   if (interestWords.some(w => text.includes(w))) {
     return {
       type: 'interest',
-      suggestion: "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.",
-      info: 'Interest detected'
+      suggestion: "For the private insurance, all I need is your age and I can get you an accurate quote!",
+      info: 'Interest detected - need age'
     };
   }
 
-  // Default - push for call
+  // Default - ask for age
   return {
     type: 'default',
-    suggestion: "Are you available for a quick 5-10 minute call with Jack to go over the coverages? That way you have all the info you need to make the best decision.",
-    info: 'Default response'
+    suggestion: "For the private insurance, all I need is your age and I can get you an accurate quote!",
+    info: 'Need age for quote'
   };
 }
 
