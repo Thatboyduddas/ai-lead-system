@@ -4,6 +4,10 @@ const bodyParser = require('body-parser');
 const { Pool } = require('pg');
 const Anthropic = require('@anthropic-ai/sdk');
 
+// ============ DUDDAS CRM v5.0 - MAGA EDITION ============
+// Making Insurance Great Again!
+const VERSION = '5.0';
+
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
@@ -14,11 +18,21 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 });
 
-// PostgreSQL connection
+// PostgreSQL connection with optimized pool settings
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  max: 20, // Maximum connections
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
 });
+
+// Simple in-memory cache for faster reads
+const cache = {
+  leads: null,
+  lastFetch: 0,
+  TTL: 5000 // 5 second cache
+};
 
 async function initDB() {
   try {
@@ -30,7 +44,11 @@ async function initDB() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    console.log('🇺🇸 Duddas CRM v4.0 Database initialized');
+    // Create index for faster lookups
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_leads_updated ON leads(updated_at DESC)
+    `).catch(() => {}); // Ignore if exists
+    console.log(`🇺🇸 Duddas CRM v${VERSION} Database initialized - MAGA!`);
   } catch (err) {
     console.error('Database init error:', err);
   }
@@ -43,20 +61,35 @@ async function getLead(phone) {
 
 async function saveLead(phone, data) {
   await pool.query(`
-    INSERT INTO leads (phone, data, updated_at) 
+    INSERT INTO leads (phone, data, updated_at)
     VALUES ($1, $2, NOW())
-    ON CONFLICT (phone) 
+    ON CONFLICT (phone)
     DO UPDATE SET data = $2, updated_at = NOW()
   `, [phone, JSON.stringify(data)]);
+  invalidateCache(); // Clear cache on write
 }
 
-async function getAllLeads() {
+async function getAllLeads(bypassCache = false) {
+  const now = Date.now();
+  // Use cache if valid and not bypassed
+  if (!bypassCache && cache.leads && (now - cache.lastFetch) < cache.TTL) {
+    return cache.leads;
+  }
   const result = await pool.query('SELECT data FROM leads ORDER BY updated_at DESC');
-  return result.rows.map(row => row.data);
+  cache.leads = result.rows.map(row => row.data);
+  cache.lastFetch = now;
+  return cache.leads;
+}
+
+// Invalidate cache when data changes
+function invalidateCache() {
+  cache.leads = null;
+  cache.lastFetch = 0;
 }
 
 async function clearAllLeads() {
   await pool.query('DELETE FROM leads');
+  invalidateCache();
 }
 
 // ============ PRICING ============
@@ -342,6 +375,140 @@ function detectIntent(message, context = {}) {
   
   // Default - needs review
   return { intent: 'review', confidence: 0.3 };
+}
+
+// ============ SMART TIME PARSING v5.0 ============
+function parseFollowUpTime(text) {
+  const lower = text.toLowerCase();
+  const now = new Date();
+
+  // Specific time patterns
+  const timePatterns = [
+    { pattern: /tomorrow/i, addDays: 1 },
+    { pattern: /day after tomorrow/i, addDays: 2 },
+    { pattern: /next week/i, addDays: 7 },
+    { pattern: /next month/i, addDays: 30 },
+    { pattern: /in (\d+) days?/i, dynamic: (m) => parseInt(m[1]) },
+    { pattern: /in (\d+) weeks?/i, dynamic: (m) => parseInt(m[1]) * 7 },
+    { pattern: /(\d+) days?( from now)?/i, dynamic: (m) => parseInt(m[1]) }
+  ];
+
+  // Days of week
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  for (let i = 0; i < days.length; i++) {
+    if (lower.includes(days[i])) {
+      const today = now.getDay();
+      let daysUntil = i - today;
+      if (daysUntil <= 0) daysUntil += 7;
+      const futureDate = new Date(now);
+      futureDate.setDate(now.getDate() + daysUntil);
+      return { date: futureDate.toISOString().split('T')[0], display: days[i].charAt(0).toUpperCase() + days[i].slice(1) };
+    }
+  }
+
+  // Process patterns
+  for (const { pattern, addDays, dynamic } of timePatterns) {
+    const match = lower.match(pattern);
+    if (match) {
+      const daysToAdd = dynamic ? dynamic(match) : addDays;
+      const futureDate = new Date(now);
+      futureDate.setDate(now.getDate() + daysToAdd);
+      return { date: futureDate.toISOString().split('T')[0], display: match[0] };
+    }
+  }
+
+  return null;
+}
+
+// ============ SMART URGENCY SCORING v5.0 ============
+function calculateUrgencyScore(lead) {
+  let score = 50; // Base score
+
+  // Category boost
+  const categoryBoosts = {
+    'hot': 30,
+    'ready_for_quote': 25,
+    'wants_quote': 20,
+    'question': 15,
+    'soft_positive': 10,
+    'scheduled': 5,
+    'waiting': -10,
+    'dead': -40,
+    'review': 5
+  };
+  score += categoryBoosts[lead.category] || 0;
+
+  // Time since last message (hours)
+  if (lead.lastMessageAt) {
+    const hoursSince = (Date.now() - new Date(lead.lastMessageAt).getTime()) / (1000 * 60 * 60);
+    if (hoursSince < 1) score += 20; // Super fresh
+    else if (hoursSince < 4) score += 15;
+    else if (hoursSince < 12) score += 10;
+    else if (hoursSince < 24) score += 5;
+    else if (hoursSince > 48) score -= 10; // Getting stale
+    else if (hoursSince > 72) score -= 20;
+  }
+
+  // Quote sent but no booking = hot
+  if (lead.quoteSent && !lead.appointmentSet) score += 15;
+
+  // Multiple messages = engaged
+  if (lead.messages && lead.messages.length > 3) score += 10;
+
+  // Has referral = bonus
+  if (lead.hasReferral) score += 5;
+
+  // Clamp score
+  return Math.max(0, Math.min(100, score));
+}
+
+// ============ QUICK REPLY SUGGESTIONS v5.0 ============
+function getQuickReplies(lead) {
+  const category = lead.category || 'review';
+  const isQuoted = lead.quoteSent || lead.currentTag === 'Quoted';
+
+  const replies = {
+    'hot': [
+      '🔥 When works for a quick call?',
+      '📞 I can call you now if you have 5 min?',
+      '📅 Let me send you my calendar link!'
+    ],
+    'ready_for_quote': [
+      '💰 Just sent the numbers - any questions?',
+      '📊 Those are some of our most popular plans!',
+      '🤔 Want me to walk you through the options?'
+    ],
+    'wants_quote': [
+      '📋 Just need age and gender of everyone who needs coverage',
+      '🎯 Quick question - just you, or anyone else going on the plan?',
+      '✅ Happy to get you numbers!'
+    ],
+    'question': isQuoted ? [
+      '💬 Happy to clarify!',
+      '📞 Want me to call and walk you through?',
+      '✅ Great question!'
+    ] : [
+      '💬 Happy to help!',
+      '📋 Let me get your info and answer that',
+      '✅ Good question!'
+    ],
+    'soft_positive': isQuoted ? [
+      '👍 Take your time! I\'m here when you\'re ready',
+      '📞 Want to do a quick call to go over it?',
+      '💬 Any questions I can answer?'
+    ] : [
+      '👍 No pressure! What questions do you have?',
+      '📋 Want me to get you some numbers?',
+      '💬 Happy to help whenever you\'re ready'
+    ],
+    'waiting': [
+      '⏳ Just following up!',
+      '👋 Hey, wanted to check in',
+      '📱 Still there?'
+    ]
+  };
+
+  return replies[category] || ['👋 How can I help?', '📞 Want to chat?', '💬 Let me know!'];
 }
 
 // ============ SALESGOD API INTEGRATION ============
@@ -938,26 +1105,28 @@ app.post('/api/leads/:phone/send', async (req, res) => {
       return res.status(404).json({ success: false, error: 'Lead not found' });
     }
 
-    // Send to SalesGod via API
-    const sendResult = await sendMessageToSalesGod(phone, message, lead.name);
+    // *** QUEUE THE MESSAGE FOR CHROME EXTENSION ***
+    // The extension will poll /api/queue/next and send via SalesGod UI
+    lead.pendingMessage = message;
+    lead.messageQueuedAt = new Date().toISOString();
 
-    // Add message to our local history regardless of SalesGod result
+    // Also add message to our local history as "queued"
     lead.messages.push({
       text: message,
       timestamp: new Date().toISOString(),
       isOutgoing: true,
       sentFromDashboard: true,
-      salesgodSync: sendResult.success
+      status: 'queued' // Will be updated to 'sent' when extension confirms
     });
 
-    // Update lead state after sending
+    // Update lead state
     lead.category = 'waiting';
     lead.priority = 'low';
-    lead.suggestedAction = '⏳ Waiting for response';
+    lead.suggestedAction = '⏳ Message queued - waiting for extension to send';
     lead.copyMessage = null;
     lead.lastMessageAt = new Date().toISOString();
 
-    // Track what we sent
+    // Track what we're sending
     const msgLower = message.toLowerCase();
     if (msgLower.includes('qualify for plans between') || msgLower.includes('deductibles and networks')) {
       lead.quoteSent = true;
@@ -969,11 +1138,12 @@ app.post('/api/leads/:phone/send', async (req, res) => {
 
     await saveLead(phone, lead);
 
+    console.log(`📤 Message queued for ${phone}: "${message.substring(0, 50)}..."`);
+
     res.json({
       success: true,
-      salesgodSync: sendResult.success,
-      salesgodResponse: sendResult.response || sendResult.error,
-      message: 'Message sent'
+      queued: true,
+      message: 'Message queued - Chrome extension will send via SalesGod'
     });
   } catch (err) {
     console.error('Send message error:', err);
@@ -985,7 +1155,15 @@ app.post('/api/leads/:phone/send', async (req, res) => {
 app.get('/api/leads', async (req, res) => {
   try {
     const leads = await getAllLeads();
-    res.json(leads);
+    // v5.0: Add urgency scores and quick replies for smarter UI
+    const enhancedLeads = leads.map(lead => ({
+      ...lead,
+      urgencyScore: calculateUrgencyScore(lead),
+      quickReplies: getQuickReplies(lead)
+    }));
+    // Sort by urgency score (highest first)
+    enhancedLeads.sort((a, b) => b.urgencyScore - a.urgencyScore);
+    res.json(enhancedLeads);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1044,11 +1222,13 @@ app.post('/api/leads/:phone/status', async (req, res) => {
 app.get('/api/test', async (req, res) => {
   try {
     const leads = await getAllLeads();
-    res.json({ 
-      status: '🇺🇸 Duddas CRM v3.0 - MAGA Edition', 
+    res.json({
+      status: `🇺🇸 Duddas CRM v${VERSION} - MAGA Edition`,
+      version: VERSION,
       leads: leads.length,
       message: 'Making Insurance Great Again!',
-      aiEnabled: !!process.env.ANTHROPIC_API_KEY
+      aiEnabled: !!process.env.ANTHROPIC_API_KEY,
+      cacheActive: cache.leads !== null
     });
   } catch (err) {
     res.json({ status: 'Running (DB Error)', error: err.message });
@@ -1696,11 +1876,47 @@ app.post('/api/quote', (req, res) => {
   });
 });
 
+// ============ SMART STATS ENDPOINT v5.0 ============
+app.get('/api/stats/quick', async (req, res) => {
+  try {
+    const leads = await getAllLeads();
+    const now = Date.now();
+    const todayStart = new Date().setHours(0, 0, 0, 0);
+    const weekStart = now - (7 * 24 * 60 * 60 * 1000);
+
+    const stats = {
+      total: leads.length,
+      hot: leads.filter(l => l.category === 'hot' || l.priority === 'urgent').length,
+      needsAction: leads.filter(l => l.copyMessage && l.category !== 'waiting' && l.category !== 'dead').length,
+      waiting: leads.filter(l => l.category === 'waiting').length,
+      quoted: leads.filter(l => l.quoteSent).length,
+      booked: leads.filter(l => l.currentTag === 'Appointment Set' || l.appointmentSet).length,
+      dead: leads.filter(l => l.category === 'dead').length,
+      todayNew: leads.filter(l => new Date(l.createdAt).getTime() > todayStart).length,
+      weekNew: leads.filter(l => new Date(l.createdAt).getTime() > weekStart).length,
+      avgUrgency: leads.length > 0
+        ? Math.round(leads.reduce((sum, l) => sum + calculateUrgencyScore(l), 0) / leads.length)
+        : 0,
+      topUrgent: leads
+        .map(l => ({ phone: l.phone, name: l.name, urgency: calculateUrgencyScore(l) }))
+        .sort((a, b) => b.urgency - a.urgency)
+        .slice(0, 5)
+    };
+
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 initDB().then(() => {
   app.listen(PORT, () => {
-    console.log(`🇺🇸 Duddas CRM v4.0 on port ${PORT} - Making Insurance Great Again!`);
-    console.log(`AI Responses: ${process.env.ANTHROPIC_API_KEY ? 'ENABLED' : 'DISABLED (set ANTHROPIC_API_KEY)'}`);
+    console.log(`\n🇺🇸🇺🇸🇺🇸 DUDDAS CRM v${VERSION} - MAGA EDITION 🇺🇸🇺🇸🇺🇸`);
+    console.log(`Port: ${PORT} | Making Insurance Great Again!`);
+    console.log(`AI: ${process.env.ANTHROPIC_API_KEY ? '✅ ENABLED' : '❌ DISABLED'}`);
+    console.log(`SalesGod: ${SALESGOD_WEBHOOK_URL ? '✅ CONNECTED' : '❌ NOT CONFIGURED'}`);
+    console.log(`Calendly: ${CALENDLY_API_KEY ? '✅ CONNECTED' : '❌ NOT CONFIGURED'}\n`);
   });
 });

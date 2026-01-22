@@ -7,8 +7,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Duddas CRM">
   <meta name="theme-color" content="#070b14">
-  <title>Duddas CRM v4.0</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <title>Duddas CRM v5.0 - MAGA Edition</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg-primary: #070b14;
@@ -53,13 +53,55 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* Header */
+    /* Custom MAGA Scrollbars */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-secondary); }
+    ::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, var(--red-primary), var(--blue-dark));
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #ef4444, var(--blue-primary)); }
+
+    /* Star Sparkle Animation */
+    @keyframes starSparkle {
+      0%, 100% { opacity: 0; transform: scale(0.5) rotate(0deg); }
+      50% { opacity: 1; transform: scale(1) rotate(180deg); }
+    }
+    .star-effect {
+      position: fixed;
+      pointer-events: none;
+      color: var(--gold-primary);
+      font-size: 16px;
+      z-index: 9999;
+      animation: starSparkle 1s ease-out forwards;
+    }
+
+    /* Loading Spinner MAGA Edition */
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--blue-dark);
+      border-top: 3px solid var(--red-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Success Flash Animation */
+    @keyframes successFlash {
+      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+      70% { box-shadow: 0 0 0 15px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    .success-flash { animation: successFlash 0.6s ease-out; }
+
+    /* Header - MAGA Edition */
     .header {
-      background: linear-gradient(135deg, rgba(153, 27, 27, 0.9) 0%, rgba(30, 58, 95, 0.9) 100%);
+      background: linear-gradient(135deg, rgba(153, 27, 27, 0.95) 0%, rgba(30, 58, 95, 0.95) 100%);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border-accent);
-      padding: 14px 28px;
+      border-bottom: 3px solid var(--gold-primary);
+      padding: 10px 28px;
       position: sticky;
       top: 0;
       z-index: 50;
@@ -73,13 +115,39 @@
       align-items: center;
     }
     .logo {
-      font-size: 20px;
+      font-family: 'Oswald', sans-serif;
+      font-size: 22px;
       font-weight: 700;
       color: #fff;
       display: flex;
       align-items: center;
       gap: 12px;
-      letter-spacing: -0.3px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .logo-trump {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid var(--gold-primary);
+      box-shadow: 0 0 15px rgba(251, 191, 36, 0.5);
+      object-fit: cover;
+    }
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.1;
+    }
+    .logo-text .main { color: #fff; }
+    .logo-text .sub {
+      font-size: 10px;
+      color: var(--gold-primary);
+      letter-spacing: 2px;
+      font-weight: 600;
+    }
+    .logo-flag {
+      font-size: 24px;
+      margin-left: 4px;
     }
     .logo-dot {
       width: 12px;
@@ -94,6 +162,16 @@
       50% { opacity: 0.7; transform: scale(1.1); }
     }
     .header-actions { display: flex; gap: 10px; align-items: center; }
+    .version-badge {
+      background: linear-gradient(135deg, var(--gold-primary), var(--gold-dark));
+      color: #000;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: 'Oswald', sans-serif;
+      letter-spacing: 1px;
+    }
 
     /* Nav Tabs */
     .nav-tabs {
@@ -663,19 +741,26 @@
       font-size: 14px;
       line-height: 1.6;
       box-shadow: var(--shadow-sm);
+      position: relative;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
+    .message-bubble:hover { transform: scale(1.01); }
     .message-bubble.incoming {
-      background: var(--bg-tertiary);
+      background: linear-gradient(135deg, rgba(19, 27, 46, 0.9), rgba(30, 58, 95, 0.4));
       border: 1px solid var(--border-subtle);
       align-self: flex-start;
       border-bottom-left-radius: 6px;
     }
     .message-bubble.outgoing {
-      background: linear-gradient(135deg, var(--blue-dark), var(--blue-primary));
+      background: linear-gradient(135deg, var(--red-dark) 0%, var(--blue-dark) 100%);
       align-self: flex-end;
       border-bottom-right-radius: 6px;
       color: #fff;
-      box-shadow: var(--shadow-md), 0 0 15px rgba(37, 99, 235, 0.2);
+      box-shadow: var(--shadow-md), 0 0 20px rgba(153, 27, 27, 0.25);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+    .message-bubble.outgoing:hover {
+      box-shadow: var(--shadow-lg), 0 0 30px rgba(251, 191, 36, 0.2);
     }
     .message-time {
       font-size: 11px;
@@ -816,19 +901,19 @@
 
     .action-area {
       padding: 24px 28px;
-      background: var(--bg-secondary);
-      border-top: 1px solid var(--border-accent);
-      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+      background: linear-gradient(180deg, var(--bg-secondary) 0%, rgba(13, 20, 36, 0.95) 100%);
+      border-top: 2px solid var(--gold-primary);
+      box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.4), var(--shadow-glow-gold);
     }
 
     .copy-suggestion {
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%);
-      backdrop-filter: blur(10px);
+      background: linear-gradient(135deg, rgba(153, 27, 27, 0.15) 0%, rgba(30, 58, 95, 0.2) 100%);
+      backdrop-filter: blur(15px);
       border-radius: var(--radius-lg);
       padding: 20px;
       margin-bottom: 18px;
-      border: 1px solid var(--glass-border);
-      box-shadow: var(--shadow-md);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
     .copy-suggestion-header {
       display: flex;
@@ -877,18 +962,20 @@
       flex: 1;
       padding: 14px;
       border-radius: var(--radius-md);
-      background: var(--glass-bg);
+      background: linear-gradient(135deg, var(--blue-dark), var(--blue-primary));
       backdrop-filter: blur(10px);
       color: #fff;
       font-size: 14px;
       font-weight: 600;
-      border: 1px solid var(--glass-border);
+      border: 1px solid rgba(37, 99, 235, 0.5);
       cursor: pointer;
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       font-family: inherit;
+      box-shadow: var(--shadow-sm);
     }
     .copy-btn:hover {
-      background: rgba(255, 255, 255, 0.15);
+      background: linear-gradient(135deg, var(--blue-primary), #3b82f6);
+      box-shadow: var(--shadow-md), 0 0 20px rgba(37, 99, 235, 0.3);
       transform: translateY(-2px);
     }
     .copy-btn.copied {
@@ -900,18 +987,21 @@
       flex: 1;
       padding: 14px;
       border-radius: var(--radius-md);
-      background: linear-gradient(135deg, var(--red-primary), var(--red-dark));
+      background: linear-gradient(135deg, var(--red-primary), var(--gold-dark));
       color: #fff;
       font-size: 14px;
-      font-weight: 600;
-      border: none;
+      font-weight: 700;
+      border: 1px solid rgba(251, 191, 36, 0.5);
       cursor: pointer;
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      font-family: inherit;
-      box-shadow: var(--shadow-sm);
+      font-family: 'Oswald', sans-serif;
+      box-shadow: var(--shadow-sm), var(--shadow-glow-red);
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
     .send-btn:hover {
       transform: translateY(-2px);
+      box-shadow: var(--shadow-lg), var(--shadow-glow-gold);
       box-shadow: var(--shadow-md), var(--shadow-glow-red);
     }
     .send-btn.sending {
@@ -937,6 +1027,30 @@
     }
     .action-btn:hover {
       background: rgba(153, 27, 27, 0.2);
+
+    /* v5.0 Quick Replies */
+    .quick-replies {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .quick-reply-btn {
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(153, 27, 27, 0.1));
+      color: var(--gold-primary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 600;
+    }
+    .quick-reply-btn:hover {
+      background: linear-gradient(135deg, rgba(251, 191, 36, 0.25), rgba(153, 27, 27, 0.2));
+      border-color: var(--gold-primary);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 10px rgba(251, 191, 36, 0.2);
       border-color: rgba(153, 27, 27, 0.4);
       color: #fff;
       transform: translateY(-2px);
@@ -1578,21 +1692,26 @@
 
     .analytics-header {
       margin-bottom: 32px;
+      text-align: center;
     }
     .analytics-header h2 {
-      font-size: 28px;
+      font-family: 'Oswald', sans-serif;
+      font-size: 36px;
       font-weight: 700;
       color: #fff;
       margin-bottom: 10px;
-      letter-spacing: -0.5px;
-      background: linear-gradient(135deg, #fff 0%, var(--gold-primary) 100%);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, var(--red-primary) 0%, #fff 50%, var(--blue-primary) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      text-shadow: 0 2px 20px rgba(251, 191, 36, 0.3);
     }
     .analytics-header p {
       font-size: 15px;
-      color: var(--text-muted);
+      color: var(--gold-primary);
+      font-weight: 500;
     }
 
     .analytics-grid {
@@ -1602,18 +1721,31 @@
       margin-bottom: 28px;
     }
     .stat-card {
-      background: var(--glass-bg);
+      background: linear-gradient(135deg, rgba(13, 20, 36, 0.9) 0%, rgba(30, 58, 95, 0.4) 100%);
       backdrop-filter: blur(20px);
       border-radius: var(--radius-xl);
       padding: 24px;
-      border: 1px solid var(--border-subtle);
+      border: 1px solid rgba(251, 191, 36, 0.2);
       transition: all 0.25s ease;
       box-shadow: var(--shadow-md);
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '★';
+      position: absolute;
+      top: 8px;
+      right: 12px;
+      font-size: 12px;
+      color: var(--gold-primary);
+      opacity: 0.3;
     }
     .stat-card:hover {
       transform: translateY(-4px);
-      box-shadow: var(--shadow-lg);
+      box-shadow: var(--shadow-lg), var(--shadow-glow-gold);
+      border-color: var(--gold-primary);
     }
+    .stat-card:hover::before { opacity: 0.7; }
     .stat-card.highlight {
       border-color: var(--gold-primary);
       background: linear-gradient(135deg, rgba(251, 191, 36, 0.12) 0%, var(--glass-bg) 100%);
@@ -2172,10 +2304,17 @@
   <div class="header">
     <div class="header-content">
       <div class="logo">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/56/Donald_Trump_official_portrait.jpg/220px-Donald_Trump_official_portrait.jpg" alt="Trump" class="logo-trump">
+        <div class="logo-text">
+          <span class="main">DUDDAS CRM</span>
+          <span class="sub">MAKE SALES GREAT AGAIN</span>
+        </div>
+        <span class="logo-flag">🇺🇸</span>
         <span class="logo-dot"></span>
-        <span>Duddas CRM v4.0</span>
       </div>
       <div class="header-actions">
+        <span class="version-badge">V5.0 MAGA</span>
+        <span class="queue-indicator" id="queue-indicator" title="Messages queued for Chrome extension to send" style="display:none;background:linear-gradient(135deg,#ef4444,#b45309);color:#fff;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;" onclick="showQueueStatus()">📤 <span id="queue-count">0</span> Queued</span>
         <div class="nav-tabs">
           <button class="nav-tab active" onclick="switchView('leads')">Leads</button>
           <button class="nav-tab" onclick="switchView('calendar')">Calendar</button>
@@ -2895,10 +3034,10 @@
         const result = await res.json();
 
         if (result.success) {
-          // Update visual indicator
+          // Update visual indicator - message is now queued
           if (msgBubble) {
             msgBubble.querySelector('.message-time').innerHTML =
-              `You | ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} ✓${result.salesgodSync ? ' ✓' : ''}`;
+              `You | ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} 📤 Queued`;
             msgBubble.classList.remove('sending-animation');
           }
 
@@ -2906,19 +3045,19 @@
           const msgLower = messageText.toLowerCase();
           if (msgLower.includes('qualify for plans') || msgLower.includes('deductible') || (msgLower.includes('$') && msgLower.includes('month'))) {
             await applyTagFromDropdown('Quoted');
-            showToast('✅ Sent to SalesGod! Tag: Quoted', 'success');
+            showToast('📤 Queued! Chrome extension will send. Tag: Quoted', 'success');
           } else if (msgLower.includes('age') || msgLower.includes('how old')) {
             await applyTagFromDropdown('Age and gender');
-            showToast('✅ Sent to SalesGod! Tag: Age and gender', 'success');
+            showToast('📤 Queued! Chrome extension will send. Tag: Age and gender', 'success');
           } else {
-            showToast(result.salesgodSync ? '✅ Sent to SalesGod!' : '✅ Saved (SalesGod sync pending)', 'success');
+            showToast('📤 Queued! Open SalesGod with extension to send', 'success');
           }
 
           // Clear the textarea
           if (textarea) textarea.value = '';
 
           // Update button
-          btn.textContent = '✅ Sent!';
+          btn.textContent = '📤 Queued!';
           btn.classList.add('sent');
 
           // Clear suggestion
@@ -3137,6 +3276,23 @@
       }
     }
 
+    // v5.0: Quick reply function
+    function useQuickReply(text) {
+      const textarea = document.getElementById('editable-response');
+      if (textarea) {
+        textarea.value = text;
+        textarea.focus();
+        // Visual feedback
+        const btn = event.target;
+        btn.style.background = 'var(--green-primary)';
+        btn.style.color = '#fff';
+        setTimeout(() => {
+          btn.style.background = '';
+          btn.style.color = '';
+        }, 300);
+      }
+    }
+
     // Multi-tag functions
     function getTagColor(tag) {
       const colors = {
@@ -3346,6 +3502,36 @@
       }
     });
 
+    // v5.0: Check message queue status
+    async function checkQueueStatus() {
+      try {
+        const res = await fetch('/api/queue/pending');
+        const data = await res.json();
+        const indicator = document.getElementById('queue-indicator');
+        const countEl = document.getElementById('queue-count');
+
+        if (data.count > 0) {
+          indicator.style.display = 'inline-block';
+          countEl.textContent = data.count;
+        } else {
+          indicator.style.display = 'none';
+        }
+      } catch (e) { /* ignore */ }
+    }
+
+    function showQueueStatus() {
+      fetch('/api/queue/pending')
+        .then(r => r.json())
+        .then(data => {
+          const queueList = data.queue.map(q => `• ${q.name || q.phone}: "${q.message.substring(0, 40)}..."`).join('\n') || 'Queue empty';
+          alert(`📤 MESSAGE QUEUE\n\nMessages waiting: ${data.count}\n\n${queueList}\n\n⚠️ Open SalesGod with Chrome extension to send these messages!`);
+        });
+    }
+
+    // Check queue every 5 seconds
+    setInterval(checkQueueStatus, 5000);
+    setTimeout(checkQueueStatus, 1000);
+
     async function loadLeads() {
       try {
         const res = await fetch('/api/leads');
@@ -3480,12 +3666,18 @@
         const isHandled = lead.status === 'handled';
         const hasFollowUp = lead.followUpDate && lead.category === 'scheduled';
         const stale = isStale(lead);
+        // v5.0: Urgency score with color coding
+        const urgency = lead.urgencyScore || 50;
+        const urgencyColor = urgency >= 75 ? '#ef4444' : urgency >= 50 ? '#fbbf24' : '#22c55e';
 
         return `
           <div class="lead-item ${isActive ? 'active' : ''} ${isHandled ? 'handled' : ''} ${stale ? 'stale' : ''}" onclick="openLead('${lead.phone}')">
             <div class="lead-item-header">
               <span class="lead-item-name">${lead.name || 'Unknown'}</span>
-              <span class="lead-item-time">${timeAgo(lead.lastMessageAt || lead.createdAt)}</span>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span class="urgency-score" style="font-size:10px;font-weight:700;color:${urgencyColor};background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;" title="Urgency Score">${urgency}</span>
+                <span class="lead-item-time">${timeAgo(lead.lastMessageAt || lead.createdAt)}</span>
+              </div>
             </div>
             <div class="lead-item-preview">${lastMsg?.text?.substring(0, 50) || 'No messages'}${lastMsg?.text?.length > 50 ? '...' : ''}</div>
             <div class="lead-item-badges">
@@ -3599,6 +3791,11 @@
                 <span class="copy-suggestion-title">SEND FOLLOW-UP</span>
                 <span class="copy-suggestion-tag" style="background:#3b82f6;">Waiting for reply</span>
               </div>
+              ${lead.quickReplies && lead.quickReplies.length > 0 ? `
+                <div class="quick-replies">
+                  ${lead.quickReplies.map(r => `<button class="quick-reply-btn" onclick="useQuickReply('${r.replace(/'/g, "\\'")}')">${r}</button>`).join('')}
+                </div>
+              ` : ''}
               <textarea class="editable-response" id="editable-response" rows="3" placeholder="Type a follow-up message..."></textarea>
               <div class="send-buttons">
                 <button class="copy-btn" onclick="copyEditedMessage()">Copy</button>
@@ -3611,6 +3808,10 @@
                 <span class="copy-suggestion-title">RE-ENGAGE</span>
                 <span class="copy-suggestion-tag" style="background:#ef4444;">Dead lead</span>
               </div>
+              <div class="quick-replies">
+                <button class="quick-reply-btn" onclick="useQuickReply('Hey! Just checking in - still looking for coverage?')">Check in</button>
+                <button class="quick-reply-btn" onclick="useQuickReply('Wanted to follow up - any changes to your situation?')">Follow up</button>
+              </div>
               <textarea class="editable-response" id="editable-response" rows="2" placeholder="Send a re-engagement message..."></textarea>
               <div class="send-buttons">
                 <button class="copy-btn" onclick="copyEditedMessage()">Copy</button>
@@ -3622,6 +3823,11 @@
               <div class="copy-suggestion-header">
                 <span class="copy-suggestion-title">SEND MESSAGE</span>
               </div>
+              ${lead.quickReplies && lead.quickReplies.length > 0 ? `
+                <div class="quick-replies">
+                  ${lead.quickReplies.map(r => `<button class="quick-reply-btn" onclick="useQuickReply('${r.replace(/'/g, "\\'")}')">${r}</button>`).join('')}
+                </div>
+              ` : ''}
               <textarea class="editable-response" id="editable-response" rows="3" placeholder="Type your message..."></textarea>
               <div class="send-buttons">
                 <button class="copy-btn" onclick="copyEditedMessage()">Copy</button>
