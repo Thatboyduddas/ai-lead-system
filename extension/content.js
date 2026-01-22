@@ -1,8 +1,8 @@
-// Duddas CRM v6.0.1 - Chrome Extension with AI Assistant
+// Duddas CRM v6.0.2 - Chrome Extension with AI Assistant
 // Fixed for SalesGod's actual HTML structure
 
 const DASHBOARD_URL = "https://ai-lead-system-production-df0a.up.railway.app";
-const VERSION = "6.0.1";
+const VERSION = "6.0.2";
 let lastSentHash = "";
 let lastFullSyncHash = "";
 let currentPhone = null;
@@ -385,6 +385,9 @@ function formatPhoneDisplay(phone) {
 }
 
 async function processMessageQueue() {
+  // ONLY process queue if auto-send is enabled
+  if (!autoSendEnabled) return;
+
   if (queueProcessing) return;
   queueProcessing = true;
 
@@ -593,8 +596,7 @@ async function applyTag(tagName) {
 async function checkPendingTags() {
   if (tagInProgress) return;
 
-  extractConversationData();
-
+  // Use cached data instead of extracting fresh
   if (!currentPhone) return;
   tagInProgress = true;
 
@@ -624,6 +626,9 @@ async function checkPendingTags() {
 // ============================================
 
 async function checkPendingSends() {
+  // ONLY check pending sends if auto-send is enabled
+  if (!autoSendEnabled) return;
+
   if (!currentPhone || pendingInProgress || queueProcessing) return;
   pendingInProgress = true;
 
