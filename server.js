@@ -2526,12 +2526,19 @@ app.get('/api/stats/quick', async (req, res) => {
     'take me off', 'cancel', 'quit', 'end', 'go away',
     'not looking', 'already have insurance', 'already have',
     'have insurance', "don't need", 'dont need', 'do not text',
-    'dont text', "don't text", 'stop texting', 'blocked',
+    'dont text', "don't text", 'stop texting', 'blocked', 'not at this time',
+    'no but thanks', 'no but thank', 'pass', 'not right now', 'maybe later',
   ];
+
+  // Short exact-match responses that mean no
+  const EXACT_NO = ['no', 'no.', 'nope', 'nah', 'n', 'no!', 'nope.', 'na', 'negative'];
 
   function isOptOut(text) {
     if (!text) return false;
     const lower = text.toLowerCase().trim();
+    // Check exact short responses first
+    if (EXACT_NO.includes(lower)) return true;
+    // Then check if message contains opt-out phrases
     return FILTER_WORDS.some(word => lower.includes(word));
   }
 
