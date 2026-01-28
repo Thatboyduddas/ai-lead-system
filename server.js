@@ -2518,14 +2518,37 @@ app.get('/api/stats/quick', async (req, res) => {
     }                                                                                                                                                                            
   }                                                                                                                                                                              
                                                                                                                                                                                  
-  // DripGhost Webhook - sends push notification on new text                                                                                                                     
+  // Opt-out filter - don't notify for these messages
+  const FILTER_WORDS = [
+    'stop', 'unsubscribe', 'not interested', 'remove me', 'remove',
+    'opt out', 'opt-out', 'do not contact', 'leave me alone',
+    'no thanks', 'no thank you', 'wrong number', 'wrong person',
+    'take me off', 'cancel', 'quit', 'end', 'go away',
+    'not looking', 'already have insurance', 'already have',
+    'have insurance', "don't need", 'dont need', 'do not text',
+    'dont text', "don't text", 'stop texting', 'blocked',
+  ];
+
+  function isOptOut(text) {
+    if (!text) return false;
+    const lower = text.toLowerCase().trim();
+    return FILTER_WORDS.some(word => lower.includes(word));
+  }
+
+  // DripGhost Webhook - sends push notification on new text (with opt-out filter)                                                                                                                     
   app.post('/webhook/dripghost', async (req, res) => {                                                                                                                           
     console.log('📥 DripGhost webhook:', req.body);                                                                                                                              
     const { event, data } = req.body;                                                                                                                                            
                                                                                                                                                                                  
     if (event === 'message.inbound') {                                                                                                                                           
       const from = data.from || 'Unknown';                                                                                                                                       
-      const text = data.text || '(MMS/Media)';                                                                                                                                   
+      const text = data.text || '(MMS/Media)';
+
+      // Skip notification if opt-out or not interested
+      if (isOptOut(text)) {
+        console.log(`🚫 Filtered out opt-out from ${from}: "${text}"`);
+        return res.status(200).send('OK');
+      }                                                                                                                                   
                                                                                                                                                                                  
       await sendPushover(                                                                                                                                                        
         '📱 New Lead Text',                                                                                                                                                      
