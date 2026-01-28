@@ -2491,6 +2491,58 @@ app.get('/api/stats/quick', async (req, res) => {
   }
 });
 
+  const PUSHOVER_USER = 'uz5heaekh4y9j6uc8p2e2xgu6zvrph';                                                                                                                        
+  const PUSHOVER_TOKEN = 'a8f757gbfeq5qsc41q83rvw2domuuz';                                                                                                                       
+                                                                                                                                                                                 
+  async function sendPushover(title, message, url = null) {                                                                                                                      
+    const body = {                                                                                                                                                               
+      token: PUSHOVER_TOKEN,                                                                                                                                                     
+      user: PUSHOVER_USER,                                                                                                                                                       
+      title: title,                                                                                                                                                              
+      message: message,                                                                                                                                                          
+      sound: 'cashregister',                                                                                                                                                     
+      priority: 1                                                                                                                                                                
+    };                                                                                                                                                                           
+    if (url) body.url = url;                                                                                                                                                     
+                                                                                                                                                                                 
+    try {                                                                                                                                                                        
+      const res = await fetch('https://api.pushover.net/1/messages.json', {                                                                                                      
+        method: 'POST',                                                                                                                                                          
+        headers: { 'Content-Type': 'application/json' },                                                                                                                         
+        body: JSON.stringify(body)                                                                                                                                               
+      });                                                                                                                                                                        
+      console.log('📱 Pushover sent');                                                                                                                                           
+      return await res.json();                                                                                                                                                   
+    } catch (err) {                                                                                                                                                              
+      console.error('Pushover error:', err);                                                                                                                                     
+    }                                                                                                                                                                            
+  }                                                                                                                                                                              
+                                                                                                                                                                                 
+  // DripGhost Webhook - sends push notification on new text                                                                                                                     
+  app.post('/webhook/dripghost', async (req, res) => {                                                                                                                           
+    console.log('📥 DripGhost webhook:', req.body);                                                                                                                              
+    const { event, data } = req.body;                                                                                                                                            
+                                                                                                                                                                                 
+    if (event === 'message.inbound') {                                                                                                                                           
+      const from = data.from || 'Unknown';                                                                                                                                       
+      const text = data.text || '(MMS/Media)';                                                                                                                                   
+                                                                                                                                                                                 
+      await sendPushover(                                                                                                                                                        
+        '📱 New Lead Text',                                                                                                                                                      
+        `From: ${from}\n\n${text.substring(0, 200)}`,                                                                                                                            
+        'https://dripghost.com/conversations'                                                                                                                                    
+      );                                                                                                                                                                         
+    }                                                                                                                                                                            
+                                                                                                                                                                                 
+    res.status(200).send('OK');                                                                                                                                                  
+  });                                                                                                                                                                            
+                                                                                                                                                                                 
+  // Test Pushover - visit this URL to test                                                                                                                                      
+  app.get('/test-pushover', async (req, res) => {                                                                                                                                
+    await sendPushover('🧪 Test Notification', 'Pushover is working! You\'ll get notified when leads text.');                                                                    
+    res.send('✅ Test notification sent! Check your phone.');                                                                                                                    
+  });    
+
 const PORT = process.env.PORT || 3000;
 
 initDB().then(() => {
