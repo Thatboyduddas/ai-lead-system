@@ -2520,6 +2520,7 @@ app.get('/api/stats/quick', async (req, res) => {
                                                                                                                                                                                  
   // Opt-out filter - don't notify for these messages
   const FILTER_WORDS = [
+    // Direct opt-outs
     'stop', 'unsubscribe', 'not interested', 'remove me', 'remove',
     'opt out', 'opt-out', 'do not contact', 'leave me alone',
     'no thanks', 'no thank you', 'wrong number', 'wrong person',
@@ -2528,10 +2529,44 @@ app.get('/api/stats/quick', async (req, res) => {
     'have insurance', "don't need", 'dont need', 'do not text',
     'dont text', "don't text", 'stop texting', 'blocked', 'not at this time',
     'no but thanks', 'no but thank', 'pass', 'not right now', 'maybe later',
+    // Polite declines
+    "i'm good", 'im good', "i'm all set", 'im all set', 'all set', 'all good',
+    'got it covered', 'already covered', 'not for me', 'not now', 'busy',
+    "i'm okay", 'im okay', "i'm fine", 'im fine', 'we are good', "we're good",
+    'no need', 'appreciate it but', 'thanks but no', 'thank you but no',
+    // Rude/aggressive
+    'delete my number', 'lose my number', 'f off', 'foff', 'fuck off',
+    'screw you', 'piss off', 'get lost', 'buzz off', 'kick rocks',
+    'eat shit', 'go to hell', 'drop dead', 'leave me the',
+    // Spam/scam accusations
+    'spam', 'scam', 'fraud', 'reported', 'reporting', 'harassment', 'harassing',
+    'how did you get my number', 'where did you get my', 'who gave you',
+    'never signed up', 'never requested', "didn't sign up", 'didnt sign up',
+    // Legal threats
+    'lawyer', 'attorney', 'legal action', 'sue you', 'ftc', 'fcc',
+    'do not call list', 'dnc list', 'report you',
+    // Deceased
+    'deceased', 'passed away', 'no longer with us', 'died', 'death',
+    // Confused/wrong person
+    'who is this', 'who dis', 'new phone', 'wrong text', "don't know you",
+    'dont know you', 'never heard of', "i don't know", 'i dont know',
+    // Insurance specific
+    'have coverage', 'got coverage', 'covered already', 'with another',
+    'use someone else', 'have an agent', 'got an agent', 'have a broker',
+    'through work', 'through my job', 'employer provides', 'work provides',
+    'medicare', 'medicaid', 'va benefits', 'military',
+    // Dismissive
+    'whatever', "don't care", 'dont care', 'not my problem', 'good luck',
+    'nice try', 'yeah right', 'sure buddy', 'lol no', 'lmao no', 'haha no',
   ];
 
   // Short exact-match responses that mean no
-  const EXACT_NO = ['no', 'no.', 'nope', 'nah', 'n', 'no!', 'nope.', 'na', 'negative'];
+  const EXACT_NO = [
+    'no', 'no.', 'nope', 'nah', 'n', 'no!', 'nope.', 'na', 'negative',
+    'nty', 'np', 'nvm', 'k', 'ok', 'okay', 'kk', 'bye', 'goodbye', 'later',
+    '?', '??', '???', '!', '!!', 'wtf', 'wth', 'bruh', 'bro',
+    '👎', '🖕', '😡', '🚫', '❌', '✋', 'x', 'X',
+  ];
 
   function isOptOut(text) {
     if (!text) return false;
